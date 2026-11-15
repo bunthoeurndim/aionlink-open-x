@@ -35,9 +35,9 @@ class CarModeService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Modo coche", NotificationManager.IMPORTANCE_LOW))
-        val notification = Notification.Builder(this, CHANNEL).setContentTitle("AionLink: modo coche")
-            .setContentText("Enviando el panel de AionLink al coche; puedes apagar la pantalla").setSmallIcon(android.R.drawable.ic_menu_upload)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Car mode", NotificationManager.IMPORTANCE_LOW))
+        val notification = Notification.Builder(this, CHANNEL).setContentTitle("AionLink: car mode")
+            .setContentText("Sending the AionLink panel to the car; you can turn off the screen").setSmallIcon(android.R.drawable.ic_menu_upload)
             .setOngoing(true).build()
         try {
             startForeground(3, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)

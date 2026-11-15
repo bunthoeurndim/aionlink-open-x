@@ -139,7 +139,7 @@ class CarModeDisplay(
         try { codec?.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, target) }) }
         catch (_: IllegalStateException) { return }
         relay?.frameDivisor = if (step == 2) 2 else 1
-        onNote("Térmico: estado $status; vídeo ${target / 1000} kbps" + if (step == 2 && relay != null) ", mitad de cuadros" else "")
+        onNote("Thermal: state $status; video ${target / 1000} kbps" + if (step == 2 && relay != null) ", half frames" else "")
     }
 
     fun requestKeyframe() {
@@ -230,7 +230,7 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
         orientation = HORIZONTAL
         setBackgroundColor(0xFF0B0F14.toInt())
         setPadding(dp(32), dp(32), dp(32), dp(32))
-        addView(column(1f, clock, date, battery, text(20f, color = 0xFF64748B.toInt()).apply { text = "AionLink · Modo coche" }))
+        addView(column(1f, clock, date, battery, text(20f, color = 0xFF64748B.toInt()).apply { text = "AionLink · Car mode" }))
         addView(card(1.3f).apply {
             addView(mediaApp); addView(mediaTitle); addView(mediaArtist)
             addView(LinearLayout(context).apply {
@@ -247,12 +247,12 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
 
     private fun render(info: CarInfo) {
         val access = CarInfoListener.granted(context)
-        mediaApp.text = info.mediaApp ?: "Música"
-        mediaTitle.text = info.mediaTitle ?: if (access) "Nada en reproducción" else "Activa el acceso a notificaciones en AionLink"
+        mediaApp.text = info.mediaApp ?: "Music"
+        mediaTitle.text = info.mediaTitle ?: if (access) "Nothing playing" else "Enable notification access in AionLink"
         mediaArtist.text = info.mediaArtist ?: ""
         playButton.text = if (info.mediaPlaying) "⏸" else "▶"
-        navTitle.text = info.navTitle ?: "Sin navegación activa"
-        navText.text = info.navText ?: if (access) "Inicia una ruta en Maps o Waze en el teléfono" else ""
+        navTitle.text = info.navTitle ?: "No active navigation"
+        navText.text = info.navText ?: if (access) "Start a route in Maps or Waze on the phone" else ""
         navIcon.setImageBitmap(info.navIcon)
         navIcon.visibility = if (info.navIcon != null) View.VISIBLE else View.GONE
     }
@@ -267,7 +267,7 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
             if (raw >= 0 && scale > 0) raw * 100 / scale else null
         }
         val charging = status?.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0)?.let { it != 0 } == true
-        battery.text = level?.let { "Teléfono: $it %" + if (charging) " · cargando" else "" } ?: ""
+        battery.text = level?.let { "Phone: $it %" + if (charging) " · charging" else "" } ?: ""
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()

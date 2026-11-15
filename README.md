@@ -1,140 +1,149 @@
 ﻿<p align="center">
-  <img src="docs/assets/opencarlink.png" alt="Icono de AionLink" width="160" />
+  <img src="docs/assets/opencarlink.png" alt="AionLink icon" width="160" />
 </p>
 
 <h1 align="center">AionLink Open</h1>
 
 <p align="center">
-  <strong>Android Auto y la pantalla de tu teléfono en un GAC AION con ICCOA CarLink.</strong><br />
-  Un cliente Android independiente y de código abierto. Sin root, sin apps del fabricante.
+  <strong>Android Auto and your phone's screen in a GAC AION with ICCOA CarLink.</strong><br />
+  An independent, open-source Android client. No root, no manufacturer apps.
 </p>
 
 <p align="center">
-  <a href="LICENSE"><img alt="Licencia GPL v3 o posterior" src="https://img.shields.io/badge/licencia-GPL--3.0--or--later-22c55e?style=flat-square" /></a>
+  <a href="LICENSE"><img alt="GPL v3 or later license" src="https://img.shields.io/badge/licencia-GPL--3.0--or--later-22c55e?style=flat-square" /></a>
   <img alt="Kotlin" src="https://img.shields.io/badge/Kotlin-2.1.20-7f52ff?style=flat-square&amp;logo=kotlin&amp;logoColor=white" />
-  <img alt="Android 10 o posterior" src="https://img.shields.io/badge/Android-10%2B-3ddc84?style=flat-square&amp;logo=android&amp;logoColor=white" />
-  <img alt="Versión 0.42" src="https://img.shields.io/badge/versi%C3%B3n-0.42-1f5fd1?style=flat-square" />
-  <a href="docs/PROGRESS.md"><img alt="Estado experimental" src="https://img.shields.io/badge/estado-experimental-f59e0b?style=flat-square" /></a>
+  <img alt="Android 10 or later" src="https://img.shields.io/badge/Android-10%2B-3ddc84?style=flat-square&amp;logo=android&amp;logoColor=white" />
+  <img alt="Version 0.42" src="https://img.shields.io/badge/versi%C3%B3n-0.42-1f5fd1?style=flat-square" />
+  <a href="docs/PROGRESS.md"><img alt="Experimental status" src="https://img.shields.io/badge/estado-experimental-f59e0b?style=flat-square" /></a>
 </p>
 
 <p align="center">
-  <a href="#qué-hace">Qué hace</a> ·
-  <a href="#estado">Estado</a> ·
-  <a href="#usarlo">Usarlo</a> ·
-  <a href="#compilar">Compilar</a> ·
-  <a href="#cómo-funciona">Cómo funciona</a> ·
-  <a href="#documentación">Documentación</a>
+  <a href="#what-it-does">What it does</a> ·
+  <a href="#status">Status</a> ·
+  <a href="#using-it">Using it</a> ·
+  <a href="#building">Building</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#documentation">Documentation</a>
 </p>
 
 ---
 
-## Qué hace
+## What it does
 
-El GAC AION i60 solo ofrece **ICCOA CarLink**, un protocolo chino de proyección que
-los teléfonos internacionales no traen. AionLink Open implementa el lado del teléfono
-de ese protocolo con APIs públicas de Android y lleva al coche:
+The GAC AION i60 only offers **ICCOA CarLink**, a Chinese projection protocol
+that international phones do not include. AionLink Open implements the phone
+side of that protocol with public Android APIs and brings to the car:
 
-- **Android Auto**, a través de [OpenHeadunit Lite](#openheadunit-lite), con la
-  pantalla del teléfono apagada.
-- **La pantalla del teléfono** (modo espejo), con toque y sonido.
-- **Un panel propio** con reloj, música y la indicación de Maps o Waze, también con
-  la pantalla apagada.
+- **Android Auto**, via [OpenHeadunit Lite](#openheadunit-lite), with the
+  phone screen off.
+- **The phone screen** (mirror mode), with touch and sound.
+- **An own panel** with a clock, music, and Maps or Waze directions, also with
+  the screen off.
 
 ```text
 Galaxy S25 Ultra                                              GAC AION i60
 ┌────────────────────────────┐   Wi-Fi Direct + ICCOA    ┌──────────────────┐
 │ Android Auto               │                           │                  │
-│   ↓ (servidor de unidad    │   vídeo H.264 1920x960    │  Pantalla        │
-│      principal, local)     │ ────────────────────────► │  CarLink         │
-│ OpenHeadunit Lite          │   audio AAC 48 kHz        │                  │
-│   ↓ superficie + audio     │                           │                  │
-│ AionLink Sonda ────────────┼──◄────── toques (UIBC) ───┤                  │
+│   ↓ (head unit server,     │   H.264 video 1920x960    │  CarLink         │
+│      local)                │ ────────────────────────► │  screen          │
+│ OpenHeadunit Lite          │   AAC audio 48 kHz        │                  │
+│   ↓ surface + audio        │                           │                  │
+│ AionLink Probe ────────────┼──◄────── touches (UIBC) ───┤                  │
 └────────────────────────────┘                           └──────────────────┘
 ```
 
-Vehículo de referencia: **GAC AION i60 REEV Platinum** (unidad ADiGO, firmware
-`GAC_T51_IDC_S003_260310_0742921_R`). Teléfono de referencia: **Samsung Galaxy S25
-Ultra** internacional con Android 17.
+Reference vehicle: **GAC AION i60 REEV Platinum** (ADiGO unit, firmware
+`GAC_T51_IDC_S003_260310_0742921_R`). Reference phone: international **Samsung
+Galaxy S25 Ultra** with Android 17.
 
 <p align="center">
-  <img src="docs/assets/screenshots/aionlink-sonda.png" alt="Pantalla principal de AionLink Sonda" width="300" />
+  <img src="docs/assets/screenshots/aionlink-sonda.png" alt="AionLink Probe home screen" width="300" />
   &nbsp;&nbsp;
-  <img src="docs/assets/screenshots/openheadunit-lite.png" alt="Pantalla de OpenHeadunit Lite" width="300" />
+  <img src="docs/assets/screenshots/openheadunit-lite.png" alt="OpenHeadunit Lite screen" width="300" />
 </p>
 
-## Estado
+## Status
 
-Cada fila indica **cómo** se comprobó: en el coche, solo en el teléfono, o por
-informe del propietario. El detalle con hashes y fechas está en
+Each row says **how** it was checked: in the car, only on the phone, or by
+owner report. The detail with hashes and dates is in
 [docs/PROGRESS.md](docs/PROGRESS.md).
 
-| Función | Estado | Evidencia |
+| Feature | Status | Evidence |
 |---|---|---|
-| Sesión ICCOA: BLE, Wi-Fi Direct, AUTH, CONTROL, RTSP | ✅ Funciona | En el AION desde 0.25 |
-| Espejo 1920x960 a 30 fps con audio AAC y toque | ✅ Funciona | En el AION con 0.34: 11 Mbps, 31 fps, 6175 tramas AAC, 351/351 toques |
-| Android Auto por OpenHeadunit Lite (vídeo, audio, reconexión) | ✅ Funciona | En el teléfono (0.42): 24–28 fps, audio real, 5/5 reconexiones; el propietario informa que funciona |
-| Android Auto con la pantalla apagada | ✅ Funciona | En el teléfono: 20 fps estables con la pantalla apagada |
-| Toque de Android Auto en el coche | 🟡 Implementado | Pendiente de diagnóstico del coche |
-| Panel propio con la pantalla apagada | 🟡 Implementado | Codificación medida 10 min en el teléfono |
-| Conexión por cable USB/AOA | 🧪 Experimental | Sin autenticación con el AION |
+| ICCOA session: BLE, Wi-Fi Direct, AUTH, CONTROL, RTSP | ✅ Works | On the AION since 0.25 |
+| Mirror 1920x960 at 30 fps with AAC audio and touch | ✅ Works | On the AION with 0.34: 11 Mbps, 31 fps, 6175 AAC frames, 351/351 touches |
+| Android Auto via OpenHeadunit Lite (video, audio, reconnection) | ✅ Works | On the phone (0.42): 24–28 fps, real audio, 5/5 reconnections; the owner reports it works |
+| Android Auto with the screen off | ✅ Works | On the phone: stable 20 fps with the screen off |
+| Android Auto touch in the car | 🟡 Implemented | Pending car diagnosis |
+| Own panel with the screen off | 🟡 Implemented | Encoding measured 10 min on the phone |
+| Wired USB/AOA connection | 🧪 Experimental | No authentication with the AION |
 
-No se declara compatibilidad con otros vehículos ni teléfonos. Las versiones
-publicadas son de investigación (`-research`).
+No compatibility with other vehicles or phones is claimed. Published versions
+are research builds (`-research`).
 
-## Usarlo
+## Using it
 
-### Lo que necesitas
+### What you need
 
-1. **AionLink Sonda** (`org.aionlink.open.lab`), compilada desde este repositorio.
-2. **OpenHeadunit Lite** (`org.aionlink.headunit.lite`), compilada desde la rama
-   `main` del [fork de Open Headunit](https://github.com/codepdbh/open-headunit).
-3. **Las dos firmadas con la misma clave.** El puente entre ellas usa el permiso
-   `signature` `org.aionlink.headunit.lite.permission.AIONLINK_SURFACE`; con claves
-   distintas, Android no deja que se comuniquen. Instala primero la Lite, que es la
-   que define ese permiso. La Lite no comparte paquete ni permisos con el Open
-   Headunit completo: ambos pueden estar instalados y AionLink solo usa la Lite.
-4. **Android Auto** con el modo desarrollador activo. En sus ajustes, menú ⋮ →
-   **Iniciar servidor unidad princ.** Repítelo después de cada actualización de
-   Android Auto y de cada reinicio del teléfono.
+1. **AionLink Probe** (`org.aionlink.open.lab`), built from this repository.
+2. **OpenHeadunit Lite** (`org.aionlink.headunit.lite`), built from the `main`
+   branch of the [Open Headunit fork](https://github.com/codepdbh/open-headunit).
+3. **Both signed with the same key.** The bridge between them uses the
+   `signature` permission
+   `org.aionlink.headunit.lite.permission.AIONLINK_SURFACE`; with different
+   keys, Android does not let them talk to each other. Install Lite first, as
+   it is the one that defines that permission. Lite shares neither package nor
+   permissions with full Open Headunit: both can be installed, and AionLink
+   only uses Lite.
+4. **Android Auto** with developer mode on. In its settings, menu ⋮ →
+   **Start head unit server**. Repeat after every Android Auto update and
+   every phone restart.
 
-### Primera vez en un teléfono
+### First time on a phone
 
-Abre **AionLink Sonda**. Si falta algo, la tarjeta **Antes de conectar** lo muestra
-con un botón para resolverlo:
+Open **AionLink Probe**. If something is missing, the **Before connecting**
+card shows it with a button to fix it:
 
-- **Bluetooth y dispositivos cercanos**: para encontrar el coche y crear su red Wi-Fi Direct.
-- **Táctil del coche**: el servicio de accesibilidad que aplica los toques de la
-  pantalla del coche. Android puede desactivarlo al actualizar la app; si pasa, la
-  tarjeta vuelve a aparecer.
-- **OpenHeadunit Lite** instalada.
+- **Bluetooth and nearby devices**: to find the car and create its Wi-Fi Direct network.
+- **Car touch**: the accessibility service that applies the car screen's
+  touches. Android may turn it off when the app updates; if that happens, the
+  card reappears.
+- **OpenHeadunit Lite** installed.
 
-Abre una vez **OpenHeadunit Lite**, lee y acepta el aviso de seguridad y concede los
-permisos. A partir de ahí trabaja en segundo plano; no hay nada que configurar.
+Open **OpenHeadunit Lite** once, read and accept the safety notice, and grant
+the permissions. From then on it works in the background; there is nothing to
+configure.
 
-### Conectar
+### Connect
 
-1. Con el coche **estacionado**, abre CarLink en la pantalla del coche.
-2. En AionLink Sonda pulsa **Buscar mi coche** y luego **Conectar** junto al receptor.
-3. Introduce el código que muestra el coche.
-4. Android Auto aparece en la pantalla del coche. Puedes apagar la pantalla del teléfono.
+1. With the car **parked**, open CarLink on the car screen.
+2. In AionLink Probe tap **Find my car** and then **Connect** next to the receiver.
+3. Enter the code the car shows.
+4. Android Auto appears on the car screen. You can turn off the phone screen.
 
-Los modos espejo y panel, la calidad de imagen, las pruebas sin coche, la conexión
-USB y la exportación del diagnóstico están en **Opciones avanzadas y diagnóstico**.
+Mirror and panel modes, image quality, car-free tests, the USB connection, and
+diagnostics export are under **Advanced options and diagnostics**.
 
-> **Seguridad:** no manipules el teléfono ni la app mientras conduces. Las pruebas
-> nuevas se hacen con el coche estacionado.
+> **Safety:** do not handle the phone or the app while driving. New tests are
+> done with the car parked.
 
-## Compilar
+## Building
 
-### Requisitos
+### Requirements
 
-- Windows con Android Studio (su JDK, en `jbr`) y Android SDK.
-- Python 3 para las herramientas de análisis y las pruebas.
+- Windows with Android Studio (its JDK, in `jbr`) and the Android SDK.
+- Python 3 for the analysis tools and tests.
 
-Versiones fijadas: **Gradle 8.13**, **AGP 8.9.1**, **Kotlin y Compose 2.1.20**,
+Pinned versions: **Gradle 8.13**, **AGP 8.9.1**, **Kotlin and Compose 2.1.20**,
 minSdk 29, compile/target SDK 35.
 
-### AionLink Sonda
+GitHub Actions also builds both debug APKs automatically on every push and
+pull request (`.github/workflows/build-apk.yml`): it runs the Python and JVM
+unit tests, then builds AionLink Open and AionLink Probe and uploads both
+APKs as the `aionlink-debug-apks` artifact. No signing secrets are needed
+for these debug builds.
+
+### AionLink Probe
 
 ```powershell
 git clone https://github.com/codepdbh/aionlink-open.git
@@ -145,13 +154,14 @@ $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-Sin `-PaionlinkLab` se compila **AionLink Open** (`org.aionlink.open`), la variante
-principal. El script `scripts/Build-Android.ps1` ejecuta las pruebas, el lint y copia
-la APK a `artifacts/builds/`.
+Without `-PaionlinkLab`, **AionLink Open** (`org.aionlink.open`), the main
+variant, is built. The `scripts/Build-Android.ps1` script runs the tests and
+lint and copies the APK to `artifacts/builds/`.
 
-**Firma compartida.** Para que las APK de distintos PC actualicen la misma app
-instalada, crea `android/keystore.properties` (nunca se sube a Git) con `storeFile`,
-`storePassword`, `keyAlias` y `keyPassword`. Usa esa misma clave para OpenHeadunit Lite.
+**Shared signing.** So that APKs from different PCs update the same installed
+app, create `android/keystore.properties` (never committed to Git) with
+`storeFile`, `storePassword`, `keyAlias`, and `keyPassword`. Use that same key
+for OpenHeadunit Lite.
 
 ### OpenHeadunit Lite
 
@@ -161,62 +171,65 @@ cd open-headunit
 ./gradlew.bat :app:assembleLiteDebug
 ```
 
-La variante `lite` está en `app/src/lite/` del fork. El mismo cambio está guardado
-aquí como parche: [patches/open-headunit/openheadunit-lite.patch](patches/open-headunit/openheadunit-lite.patch).
+The `lite` variant lives in `app/src/lite/` of the fork. The same change is
+saved here as a patch:
+[patches/open-headunit/openheadunit-lite.patch](patches/open-headunit/openheadunit-lite.patch).
 
 ## OpenHeadunit Lite
 
-Una edición de [Open Headunit](https://github.com/andreknieriem/open-headunit)
-(AGPL-3.0) dedicada a AionLink Sonda. Se instala junto a la app completa:
+An edition of [Open Headunit](https://github.com/andreknieriem/open-headunit)
+(AGPL-3.0) dedicated to AionLink Probe. It installs alongside the full app:
 
-- **Ajustes fijos** en cada arranque: solo modo autónomo, 1080p, H.264, 30 fps,
-  horizontal, audio hacia AionLink.
-- **Una sola pantalla**: estado, aviso de seguridad, permisos y detener sesión.
-- **Puente de superficie**: AionLink le entrega la superficie de su codificador y
-  una tubería de audio. Lite decodifica Android Auto directamente en ella y
-  devuelve PCM de 48 kHz, sin pantalla virtual ni privilegios de sistema.
-- **Reconexión rápida**: al volver a conectar fuerza un fotograma completo y la
-  imagen vuelve en ~1,6 s.
-- **Más ligera**: solo arm64-v8a, español e inglés, sin funciones de launcher,
-  navegación ni USB.
+- **Fixed settings** on every start: standalone mode only, 1080p, H.264, 30 fps,
+  landscape, audio to AionLink.
+- **A single screen**: status, safety notice, permissions, and stop session.
+- **Surface bridge**: AionLink hands it its encoder surface and an audio pipe.
+  Lite decodes Android Auto directly into it and returns 48 kHz PCM, with no
+  virtual display or system privileges.
+- **Fast reconnection**: on reconnecting it forces a full frame and the picture
+  returns in ~1.6 s.
+- **Lighter**: arm64-v8a only, Spanish and English, with no launcher,
+  navigation, or USB features.
 
-AionLink no incluye código de Open Headunit ni gestiona la autenticación de Android
-Auto; solo se comunica con el paquete `org.aionlink.headunit.lite` por el puente
-documentado, y nunca con el Open Headunit completo.
+AionLink includes no Open Headunit code and does not manage Android Auto
+authentication; it only talks to the `org.aionlink.headunit.lite` package
+through the documented bridge, never to full Open Headunit.
 
-## Cómo funciona
+## How it works
 
 ```text
 android/
-├── app/                   Pantalla, sesión de proyección, puente con OpenHeadunit Lite
-├── core/                  Estados de sesión
-├── protocol-api/          Contratos independientes del fabricante
-├── protocol-iccoa/        AUTH ICCOA: HKDF, AES-GCM y tramas UCar
-├── transport-bluetooth/   Descubrimiento BLE e intercambio inicial
-├── transport-wifi/        Wi-Fi Direct, AUTH y canal CONTROL cifrado
-├── transport-usb/         AOA experimental
-├── projection/            Fuente Wi-Fi Display: RTSP, MPEG-TS/RTP, UIBC
-└── vehicle-profiles/      Perfiles y evidencia por vehículo
+├── app/                   Screen, projection session, bridge to OpenHeadunit Lite
+├── core/                  Session states
+├── protocol-api/          Manufacturer-independent contracts
+├── protocol-iccoa/        ICCOA AUTH: HKDF, AES-GCM, and UCar frames
+├── transport-bluetooth/   BLE discovery and initial exchange
+├── transport-wifi/        Wi-Fi Direct, AUTH, and encrypted CONTROL channel
+├── transport-usb/         Experimental AOA
+├── projection/            Wi-Fi Display source: RTSP, MPEG-TS/RTP, UIBC
+└── vehicle-profiles/      Profiles and evidence per vehicle
 ```
 
-1. **Descubrimiento y enlace.** BLE encuentra el receptor ICCOA; con el código del
-   coche se forma la red Wi-Fi Direct.
-2. **Autenticación.** AUTH por TCP con clave de sesión derivada (ECDH + HKDF-SHA256)
-   y confirmación cifrada con AES-GCM.
-3. **Control.** Canal CONTROL cifrado con latidos y servidores MEDIA/SENSOR.
-4. **Vídeo y audio.** El coche negocia Wi-Fi Display por RTSP. AionLink codifica
-   H.264 a la resolución del coche (1920x960) y AAC-LC, y los envía en MPEG-TS sobre RTP.
-5. **Toque.** El coche envía UIBC: va a Android Auto por el puente o a la pantalla
-   del teléfono por accesibilidad.
+1. **Discovery and linking.** BLE finds the ICCOA receiver; the Wi-Fi Direct
+   network is formed with the car's code.
+2. **Authentication.** AUTH over TCP with a derived session key (ECDH +
+   HKDF-SHA256) and an AES-GCM-encrypted confirmation.
+3. **Control.** Encrypted CONTROL channel with heartbeats and MEDIA/SENSOR
+   servers.
+4. **Video and audio.** The car negotiates Wi-Fi Display over RTSP. AionLink
+   encodes H.264 at the car's resolution (1920x960) and AAC-LC, and sends them
+   in MPEG-TS over RTP.
+5. **Touch.** The car sends UIBC: it goes to Android Auto via the bridge or to
+   the phone screen via accessibility.
 
-Explicación por versiones en [docs/protocol-research/](docs/protocol-research/).
+Version-by-version explanation in [docs/protocol-research/](docs/protocol-research/).
 
-## Investigación reproducible
+## Reproducible research
 
-Las APK de investigación se obtienen por separado y se mantienen **solo en local**
-(`extracted/` y `analysis/` están excluidas de Git). El repositorio contiene
-automatización propia y reportes de hallazgos; no redistribuye aplicaciones ni
-código de fabricantes.
+Research APKs are obtained separately and kept **local only** (`extracted/`
+and `analysis/` are excluded from Git). The repository contains its own
+automation and finding reports; it does not redistribute manufacturer apps or
+code.
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts/Prepare-Tools.ps1
@@ -225,59 +238,60 @@ python scripts/inspect_native.py
 python scripts/generate_reports.py
 ```
 
-Consulta [uso de herramientas](docs/troubleshooting/TOOLS.md) y la
-[política de investigación](docs/legal/REVERSE_ENGINEERING_POLICY.md).
+See [tool usage](docs/troubleshooting/TOOLS.md) and the
+[research policy](docs/legal/REVERSE_ENGINEERING_POLICY.md).
 
-## Ruta de desarrollo
+## Development roadmap
 
-- [x] Descubrimiento BLE, enlace Wi-Fi Direct y AUTH ICCOA con el AION.
-- [x] Proyección del teléfono a 1920x960 con audio y toque, verificada en el AION.
-- [x] Panel propio y codificación con la pantalla apagada.
-- [x] Android Auto por OpenHeadunit Lite, con audio y reconexión.
-- [x] Pantallas simplificadas e icono propio (0.42).
-- [ ] Diagnóstico archivado de Android Auto en el AION: imagen, audio y toque.
-- [ ] Medir consumo y estabilidad en viajes largos.
-- [ ] Conexión por cable completa.
-- [ ] Versión firmada para instalar sin compilar.
+- [x] BLE discovery, Wi-Fi Direct link, and ICCOA AUTH with the AION.
+- [x] Phone projection at 1920x960 with audio and touch, verified on the AION.
+- [x] Own panel and encoding with the screen off.
+- [x] Android Auto via OpenHeadunit Lite, with audio and reconnection.
+- [x] Simplified screens and own icon (0.42).
+- [ ] Archived Android Auto diagnosis on the AION: picture, audio, and touch.
+- [ ] Measure consumption and stability on long trips.
+- [ ] Full wired connection.
+- [ ] Signed build to install without compiling.
 
-## Documentación
+## Documentation
 
-| Guía | Contenido |
+| Guide | Contents |
 |---|---|
-| [Progreso](docs/PROGRESS.md) | Registro por versión: cambios, pruebas, hashes y pendientes |
-| [Pruebas](docs/TESTING.md) | Verificación automatizada y en hardware |
-| [Arquitectura](docs/architecture/SYSTEM_ARCHITECTURE.md) | Módulos, estados y límites |
-| [AUTH 0.17](docs/protocol-research/AUTH_CONFIRM_017.md) | Secuencia, workModes, clave de sesión y AuthConfirm |
-| [Proyección 0.18](docs/protocol-research/PROJECTION_018.md) | CONTROL cifrado, Wi-Fi Display, TS/RTP y captura |
-| [Toque y audio 0.19](docs/protocol-research/TOUCH_AUDIO_019.md) | UIBC por accesibilidad, AAC, MEDIA/SENSOR |
-| [RTP sobre TCP 0.20](docs/protocol-research/RTP_TCP_020.md) | Bloqueo en M3 y sink del coche |
-| [Nitidez 0.34](docs/protocol-research/QUALITY_PROBE_034.md) | Resolución del coche, bitrate y pantalla apagada |
-| [Modo coche 0.35](docs/protocol-research/CAR_MODE_035.md) | Panel propio y primera vía a Android Auto |
-| [Open Headunit 0.36](docs/protocol-research/OPEN_HEADUNIT_DISPLAY_036.md) | Pantalla virtual y por qué se pasó al puente de superficie |
-| [Investigación ICCOA](docs/protocol-research/ICCOA_RESEARCH.md) | Evidencia estática y modelo del protocolo |
-| [Formato UCar](docs/protocol-research/UCAR_OBSERVED_FORMAT.md) | Cabecera de tramas observada |
-| [Preguntas abiertas](docs/protocol-research/OPEN_QUESTIONS.md) | Incertidumbres y próximos experimentos |
-| [Compatibilidad](docs/compatibility/VEHICLES.md) | Vehículos y funciones verificados |
+| [Progress](docs/PROGRESS.md) | Per-version log: changes, tests, hashes, and pending items |
+| [Tests](docs/TESTING.md) | Automated and hardware verification |
+| [Architecture](docs/architecture/SYSTEM_ARCHITECTURE.md) | Modules, states, and limits |
+| [AUTH 0.17](docs/protocol-research/AUTH_CONFIRM_017.md) | Sequence, workModes, session key, and AuthConfirm |
+| [Projection 0.18](docs/protocol-research/PROJECTION_018.md) | Encrypted CONTROL, Wi-Fi Display, TS/RTP, and capture |
+| [Touch and audio 0.19](docs/protocol-research/TOUCH_AUDIO_019.md) | UIBC via accessibility, AAC, MEDIA/SENSOR |
+| [RTP over TCP 0.20](docs/protocol-research/RTP_TCP_020.md) | M3 block and the car's sink |
+| [Sharpness 0.34](docs/protocol-research/QUALITY_PROBE_034.md) | Car resolution, bitrate, and screen-off |
+| [Car mode 0.35](docs/protocol-research/CAR_MODE_035.md) | Own panel and first path to Android Auto |
+| [Open Headunit 0.36](docs/protocol-research/OPEN_HEADUNIT_DISPLAY_036.md) | Virtual display and why the surface bridge replaced it |
+| [ICCOA research](docs/protocol-research/ICCOA_RESEARCH.md) | Static evidence and protocol model |
+| [UCar format](docs/protocol-research/UCAR_OBSERVED_FORMAT.md) | Observed frame header |
+| [Open questions](docs/protocol-research/OPEN_QUESTIONS.md) | Uncertainties and next experiments |
+| [Compatibility](docs/compatibility/VEHICLES.md) | Verified vehicles and features |
 
-## Contribuir
+## Contributing
 
-Son útiles los reportes reproducibles con versión, pasos y resultado observado,
-separando hechos, inferencias e hipótesis.
+Reproducible reports with version, steps, and observed result are useful,
+separating facts, inferences, and hypotheses.
 
 ```powershell
 python -m unittest discover -s tests/unit -v
 ./scripts/Build-Android.ps1
 ```
 
-No adjuntes APK propietarias, código descompilado, claves, tokens, VIN, direcciones
-Bluetooth ni capturas con datos personales. Anonimiza los registros antes de compartirlos.
+Do not attach proprietary APKs, decompiled code, keys, tokens, VINs, Bluetooth
+addresses, or screenshots with personal data. Anonymize logs before sharing
+them.
 
-## Licencia e independencia
+## License and independence
 
-El código original de AionLink se distribuye bajo **[GPL-3.0-or-later](LICENSE)**.
-OpenHeadunit Lite es una variante de Open Headunit y conserva su licencia
-**AGPL-3.0** en su propio repositorio. El icono es del autor del proyecto.
+AionLink's original code is distributed under **[GPL-3.0-or-later](LICENSE)**.
+OpenHeadunit Lite is a variant of Open Headunit and keeps its **AGPL-3.0**
+license in its own repository. The icon is by the project's author.
 
-Proyecto independiente, sin afiliación con GAC, AION, Samsung, Google, ICCOA ni
-Open Headunit. Android Auto es una marca de Google LLC. ICCOA CarLink no debe
-confundirse con CarLife, Carlinkit, Android Auto o Apple CarPlay.
+Independent project, with no affiliation to GAC, AION, Samsung, Google, ICCOA,
+or Open Headunit. Android Auto is a trademark of Google LLC. ICCOA CarLink
+must not be confused with CarLife, Carlinkit, Android Auto, or Apple CarPlay.

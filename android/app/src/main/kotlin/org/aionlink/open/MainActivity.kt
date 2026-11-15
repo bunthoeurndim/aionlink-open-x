@@ -49,7 +49,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     val bootstrap = BleNegotiator(application)
     val network = P2pConnector(application)
     val session = SessionCoordinator(ICCOAProtocolAdapter())
-    private val mutableEvents = MutableStateFlow(listOf("Cliente de investigación iniciado. Compatibilidad sin verificar."))
+    private val mutableEvents = MutableStateFlow(listOf("Research client started. Compatibility unverified."))
     val events = mutableEvents.asStateFlow()
     val usb = UsbAccessoryClient(application, ::event)
     val savings = PhoneSavings(application, ::event)
@@ -64,7 +64,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     fun startDisplayProbe() {
         if (displayProbe != null || VirtualProbeService.running.value) return
         if (projection.active || ProjectionService.captureReady) {
-            event("Detén la proyección y la captura antes de iniciar la sonda local")
+            event("Stop projection and capture before starting the local probe")
             return
         }
         // Long enough for several reports with the phone locked: a brief lock says little.
@@ -72,11 +72,11 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             displayProbe = OwnDisplayProbe(getApplication(), onReport = ::event)
             displayProbe?.start()
             mutableProbeRunning.value = true
-            event("Sonda local iniciada durante un máximo de 11 minutos; apaga la pantalla y después exporta el diagnóstico")
+            event("Local probe started for up to 11 minutes; turn off the screen and then export the diagnostics")
             probeHandler.postDelayed(probeEnd, 11 * 60_000L)
         } catch (error: RuntimeException) {
             displayProbe?.close(); displayProbe = null
-            event("Sonda de pantalla propia falló: ${error.javaClass.simpleName}")
+            event("Own-display probe failed: ${error.javaClass.simpleName}")
         }
     }
     fun stopDisplayProbe() {
@@ -86,7 +86,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     /** The activity-bound probe only; the foreground-service probe deliberately outlives the ViewModel. */
     private fun stopOwnDisplayProbe() {
         probeHandler.removeCallbacks(probeEnd)
-        displayProbe?.let { event("Sonda de pantalla propia terminada; vista=${it.framesRendered}; dibujo directo=${it.framesDrawn}; cuadros al encoder=${it.framesSubmitted}; H264=${it.framesEncoded}; reloj H264 no creciente=${it.timestampRegressions}"); it.close() }
+        displayProbe?.let { event("Own-display probe finished; rendered=${it.framesRendered}; direct drawing=${it.framesDrawn}; frames to encoder=${it.framesSubmitted}; H264=${it.framesEncoded}; non-increasing H264 clock=${it.timestampRegressions}"); it.close() }
         displayProbe = null
         mutableProbeRunning.value = false
     }
@@ -101,7 +101,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
      * Reports frames every 5 s so the owner (or ADB) can see whether Android Auto renders there, also with the screen off.
      */
     fun startHeadunitPreview(activity: android.content.Context) {
-        if (headunitDisplay != null || projection.active) { event("Prueba local de Android Auto no iniciada: hay otra sesión activa"); return }
+        if (headunitDisplay != null || projection.active) { event("Local Android Auto test not started: another session is active"); return }
         val units = java.util.concurrent.atomic.AtomicLong()
         val streamer = org.aionlink.projection.TsRtpStreamer({ }, audio = true)
         val peak = java.util.concurrent.atomic.AtomicInteger(-1)
@@ -109,20 +109,20 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             // Same bitrate as a car session in car mode, so the test measures what the car receives.
             val display = CarModeDisplay(getApplication(), 1920, 960, 30, org.aionlink.projection.WfdFormats.relayBitrate(1920, 960, 30),
                 onAccessUnit = { unit, pts, key -> units.incrementAndGet(); synchronized(streamer) { streamer.onAccessUnit(unit, pts, key) } },
-                onError = { error -> probeHandler.post { event("Prueba Android Auto: error $error"); stopHeadunitPreview() } },
-                externalContent = true, onNote = { note -> probeHandler.post { event("Prueba Android Auto: $note") } })
+                onError = { error -> probeHandler.post { event("Android Auto test: error $error"); stopHeadunitPreview() } },
+                externalContent = true, onNote = { note -> probeHandler.post { event("Android Auto test: $note") } })
             display.start()
             headunitDisplay = display
             mutableHeadunitPreview.value = true
             CarModeService.start(getApplication())
-            val input = display.externalInputSurface() ?: error("Falta superficie de codificador")
-            event("Prueba local Android Auto: puente de superficie sin pantalla virtual")
+            val input = display.externalInputSurface() ?: error("Missing encoder surface")
+            event("Local Android Auto test: surface bridge without virtual display")
             val sound = try {
                 BridgeAudio({ frame, pts -> synchronized(streamer) { streamer.onAudioFrame(frame, pts) } },
-                    { error -> probeHandler.post { event("Prueba Android Auto: audio del puente detenido: $error") } },
+                    { error -> probeHandler.post { event("Android Auto test: bridge audio stopped: $error") } },
                     onLevel = { peak.set(it) }).also { headunitPreviewAudio = it; it.start() }
-            } catch (error: Exception) { event("Prueba Android Auto: audio del puente no iniciado: ${error.javaClass.simpleName}"); null }
-            HeadunitSurfaceBridge(getApplication(), input, sound) { result -> event("Prueba Android Auto: $result") }
+            } catch (error: Exception) { event("Android Auto test: bridge audio not started: ${error.javaClass.simpleName}"); null }
+            HeadunitSurfaceBridge(getApplication(), input, sound) { result -> event("Android Auto test: $result") }
                 .also { headunitPreviewBridge = it; it.start() }
             var last = 0L
             val tick = object : Runnable {
@@ -130,8 +130,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                     if (headunitDisplay !== display) return
                     val now = units.get()
                     val power = getApplication<Application>().getSystemService(android.os.PowerManager::class.java)
-                    event("Prueba Android Auto: H264 en 5 s=${now - last}; total=$now; cuadros del relé=${display.relayedFrames}; datagramas=${streamer.datagramsSent}; pantalla interactiva=${power.isInteractive}; " +
-                        "audio puente=${(headunitPreviewAudio?.bytesReceived ?: 0) / 1024} KiB, AAC=${streamer.audioFrames}, pico=${peak.get()}%")
+                    event("Android Auto test: H264 in 5 s=${now - last}; total=$now; relay frames=${display.relayedFrames}; datagrams=${streamer.datagramsSent}; interactive screen=${power.isInteractive}; " +
+                        "bridge audio=${(headunitPreviewAudio?.bytesReceived ?: 0) / 1024} KiB, AAC=${streamer.audioFrames}, peak=${peak.get()}%")
                     last = now
                     probeHandler.postDelayed(this, 5000)
                 }
@@ -140,7 +140,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         } catch (error: Exception) {
             headunitPreviewAudio?.close(); headunitPreviewAudio = null
             headunitDisplay?.close(); headunitDisplay = null; mutableHeadunitPreview.value = false
-            event("Prueba local de Android Auto falló: ${error.javaClass.simpleName}")
+            event("Local Android Auto test failed: ${error.javaClass.simpleName}")
         }
     }
 
@@ -149,7 +149,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         headunitPreviewAudio?.close(); headunitPreviewAudio = null
         headunitDisplay?.close()
         headunitDisplay = null
-        if (mutableHeadunitPreview.value) { CarModeService.stop(getApplication()); event("Prueba local de Android Auto detenida") }
+        if (mutableHeadunitPreview.value) { CarModeService.stop(getApplication()); event("Local Android Auto test stopped") }
         mutableHeadunitPreview.value = false
     }
 
@@ -157,17 +157,17 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     fun startVirtualDisplayProbe() {
         if (displayProbe != null || VirtualProbeService.running.value) return
         if (projection.active || ProjectionService.captureReady) {
-            event("Detén la proyección y la captura antes de iniciar la sonda local")
+            event("Stop projection and capture before starting the local probe")
             return
         }
         VirtualProbeService.onReport = { message -> probeHandler.post { event(message) } }
         VirtualProbeService.start(getApplication())
-        event("Sonda de pantalla virtual 1920x960 iniciada en servicio en primer plano; hasta 12 minutos; no es DeX ni transmite al coche")
+        event("Virtual display probe 1920x960 started in a foreground service; up to 12 minutes; not DeX and does not stream to the car")
     }
     fun captureGranted(resultCode: Int, data: android.content.Intent?) {
-        if (resultCode != android.app.Activity.RESULT_OK || data == null) { event("Captura de pantalla no autorizada"); return }
+        if (resultCode != android.app.Activity.RESULT_OK || data == null) { event("Screen capture not authorized"); return }
         ProjectionService.start(getApplication(), resultCode, data)
-        event("Captura de pantalla autorizada para esta sesión; se usará tras PLAY del receptor")
+        event("Screen capture authorized for this session; will be used after the receiver sends PLAY")
     }
     fun event(message: String) {
         // Events are already anonymized for export; mirroring them to the local log lets ADB follow a test.
@@ -183,82 +183,82 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     val codeReadiness = mutableCodeReadiness.asStateFlow()
     private val runId = java.util.UUID.randomUUID().toString().take(8)
     private var droppedEvents = 0
-    private val mutableConnectionNotice = MutableStateFlow("Comprueba los requisitos antes de introducir un c\u00f3digo")
+    private val mutableConnectionNotice = MutableStateFlow("Check the requirements before entering a code")
     val connectionNotice = mutableConnectionNotice.asStateFlow()
     private class Prepared(val peerId: String, val local: LocalP2p)
     private var prepared: Prepared? = null
     private var attemptNumber = 0
     private val pendingAutoPin = PendingAuthCode()
-    private val autoAuthExpiry = Runnable { clearAutoAuth("AUTH automático caducó antes de conectar") }
+    private val autoAuthExpiry = Runnable { clearAutoAuth("Automatic AUTH expired before connecting") }
     private fun clearAutoAuth(reason: String? = null) {
         prepareHandler.removeCallbacks(autoAuthExpiry)
         if (!pendingAutoPin.clear()) return
         if (reason != null) event(reason)
     }
     private val prepareHandler = android.os.Handler(android.os.Looper.getMainLooper())
-    private val backgroundExpiry = Runnable { stopAll("Tiempo máximo del enlace en segundo plano agotado (50 s)") }
-    private val prepareExpiry = Runnable { cancelPrepared("La preparaci\u00f3n para introducir el c\u00f3digo caduc\u00f3") }
+    private val backgroundExpiry = Runnable { stopAll("Maximum background link time exhausted (50 s)") }
+    private val prepareExpiry = Runnable { cancelPrepared("Preparation for entering the code expired") }
     private fun operationBusy() = bootstrap.state.value.busy || network.state.value.busy || usb.state.value.busy ||
         network.authProbe.value.busy || network.authExchange.value.busy ||
         gatt.state.value.stage in setOf(GattStage.CONNECTING, GattStage.LINK_CONNECTED, GattStage.DISCOVERING_SERVICES)
     fun captureExport(): Boolean {
-        if (operationBusy()) { event("Exportaci\u00f3n aplazada: espera el resultado o pulsa Detener"); return false }
-        event("Exportaci\u00f3n solicitada: snapshot previo al selector Android")
+        if (operationBusy()) { event("Export postponed: wait for the result or tap Stop"); return false }
+        event("Export requested: snapshot before the Android picker")
         exportCapture.capture { export() }
         return true
     }
     fun consumeExport() = exportCapture.consume()
     fun scan(iccoaOnly: Boolean = true) {
-        clearAutoAuth("AUTH automático cancelado por nueva búsqueda"); cancelPrepared(); gatt.cancel(); bootstrap.cancel("Nueva b\u00fasqueda"); network.stop("Nueva b\u00fasqueda")
+        clearAutoAuth("Automatic AUTH cancelled by new search"); cancelPrepared(); gatt.cancel(); bootstrap.cancel("New search"); network.stop("New search")
         discovery.stop()
-        session.startDiscovery(); event("Modo: ${if (iccoaOnly) "ICCOA FCFB" else "general Classic/BLE"}"); event("Descubrimiento Bluetooth solicitado por el usuario")
+        session.startDiscovery(); event("Modo: ${if (iccoaOnly) "ICCOA FCFB" else "general Classic/BLE"}"); event("Bluetooth discovery requested by the user")
         discovery.start(iccoaOnly) { error ->
             if (error != null) { session.transportError(); event(error) }
-            else { session.discoveryFinished(); event("Candidatos UUID: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}"); event("Descubrimiento finalizado: ${discovery.devices.value.size} observaciones") }
+            else { session.discoveryFinished(); event("UUID candidates: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}"); event("Discovery finished: ${discovery.devices.value.size} observations") }
         }
     }
-    fun stop() { stopAll("Detenido por el usuario") }
+    fun stop() { stopAll("Stopped by the user") }
     private fun stopAll(reason: String) {
         prepareHandler.removeCallbacks(backgroundExpiry)
-        clearAutoAuth("AUTH automático cancelado: $reason")
+        clearAutoAuth("Automatic AUTH cancelled: $reason")
         cancelPrepared(reason); discovery.stop(); gatt.cancel(); bootstrap.cancel(reason); network.stop(reason)
         projection.stop(reason)
         usb.stop(); session.disconnect(); event(reason)
     }
     fun inspect(peerId: String) {
         val peer = discovery.observedBleDevice(peerId)
-        if (peer == null) { event("Dispositivo no disponible; realiza una nueva búsqueda"); return }
+        if (peer == null) { event("Device unavailable; run a new search"); return }
         discovery.stop()
-        event("Conexión GATT solicitada al ID temporal $peerId")
+        event("GATT connection requested to temporary ID $peerId")
         gatt.inspect(peerId, peer) { result ->
             if (result.stage == GattStage.INSPECTED) {
-                event("GATT comprobado y cerrado: servicios=${result.serviceCount}; UnionShare=${result.unionSharePresent}; sin sesión ICCOA")
-            } else event("Inspección GATT: ${result.stage}; ${result.error ?: "sin detalle"}")
+                event("GATT checked and closed: services=${result.serviceCount}; UnionShare=${result.unionSharePresent}; no ICCOA session")
+            } else event("GATT inspection: ${result.stage}; ${result.error ?: "no detail"}")
         }
     }
     fun prepareConnection(peerId: String, readOnly: Boolean = false) {
-        if (discovery.observedBleDevice(peerId) == null) { event("Receptor no disponible; busca de nuevo"); return }
+        if (discovery.observedBleDevice(peerId) == null) { event("Receiver unavailable; search again"); return }
         cancelPrepared(); discovery.stop(); gatt.cancel(); bootstrap.reset()
-        attemptNumber++; event("Intento local #$attemptNumber; modo=${if (readOnly) "READ_ONLY_NO_PIN" else "NORMAL_CLIENT_INFO"}")
-        event(if (readOnly) "Consulta de lectura solicitada: no usa PIN" else "Comprobaci\u00f3n local antes de solicitar PIN")
-        mutableConnectionNotice.value = "Comprobando Wi-Fi Direct local..."
+        attemptNumber++; event("Local attempt #$attemptNumber; mode=${if (readOnly) "READ_ONLY_NO_PIN" else "NORMAL_CLIENT_INFO"}")
+        event(if (readOnly) "Read query requested: does not use a PIN" else "Local check before requesting a PIN")
+        mutableConnectionNotice.value = "Checking local Wi-Fi Direct..."
         if (!readOnly) {
             mutableCodeReadiness.value = CodeReadiness.PREPARING
             mutablePinRequest.value = peerId
         }
         network.prepare { local ->
             if (readOnly) {
-                mutableConnectionNotice.value = "Consulta de diagn\u00f3stico sin PIN ni ClientInfo; no es autenticaci\u00f3n"
+                mutableConnectionNotice.value = "Diagnostic query without PIN or ClientInfo; not authentication"
                 val peer = discovery.observedBleDevice(peerId)
                 if (peer == null) { network.stop(); return@prepare }
                 bootstrap.readAvailableServerInfo(peer) { info ->
-                    event("ServerInfo obtenido por READ; red=${info.mode}; puerto=${info.portStatus}; rango=${info.portRange}; sin sesión ICCOA")
+                    event("ServerInfo obtained via READ; network=${info.mode}; port=${info.portStatus}; range=${info.portRange}; no ICCOA session")
                     network.connect(info)
                 }
             } else if (local.platformAddress.disclosure == AddressDisclosure.UNAVAILABLE) {
-                val message = "Android no devolvi\u00f3 un dato P2P local utilizable. No se fabricar\u00e1 uno ni se enviar\u00e1 la clave sin ese dato."
+                val message = "Android did not return usable local P2P data. None will be fabricated, and the key will not be sent without that data."
                 mutableCodeReadiness.value = CodeReadiness.BLOCKED
-                mutableConnectionNotice.value = message; event(message); network.stop("Requisito local no disponible")
+                mutableConnectionNotice.value = message; event(message); network.stop("Local requirement unavailable")
             } else {
                 prepared = Prepared(peerId, local)
                 val anonymous = local.platformAddress.disclosure == AddressDisclosure.ANDROID_ANONYMIZED
@@ -266,13 +266,13 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 mutablePinRequest.value = peerId
                 mutableConnectionNotice.value = if (anonymous)
                     ANONYMIZED_EXPERIMENT_DETAIL
-                    else "Requisitos locales disponibles. Introduce el c\u00f3digo de tu receptor"
-                event("Metadatos locales: ${local.platformAddress.disclosure}; valor omitido")
+                    else "Local requirements available. Enter your receiver's code"
+                event("Local metadata: ${local.platformAddress.disclosure}; valor omitido")
                 prepareHandler.postDelayed(prepareExpiry, 60000)
             }
         }
     }
-    fun cancelPrepared(reason: String = "Entrada de c\u00f3digo cancelada") {
+    fun cancelPrepared(reason: String = "Code entry cancelled") {
         prepareHandler.removeCallbacks(prepareExpiry)
         val existed = prepared != null
         val hadDialog = mutablePinRequest.value != null
@@ -286,15 +286,15 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         // Without capture the car receives no video and closes the session after about 10 s, showing an error.
         if (automaticAuth && !ProjectionService.captureReady && !projection.quality.carMode.value) {
             cancelPrepared(if (displayProbe != null || VirtualProbeService.running.value)
-                "Conexión no iniciada: hay una prueba local en curso. Detenla, pulsa 'Preparar captura de pantalla y audio' y vuelve a conectar"
-                else "Conexión no iniciada: pulsa 'Preparar captura de pantalla y audio' antes de cada conexión. No se envió nada al coche")
+                "Connection not started: a local test is running. Stop it, tap 'Prepare screen and audio capture', and reconnect"
+                else "Connection not started: tap 'Prepare screen and audio capture' before each connection. Nothing was sent to the car")
             return
         }
         val disclosure = request.local.platformAddress.disclosure
         val permitted = disclosure == AddressDisclosure.AVAILABLE && mutableCodeReadiness.value == CodeReadiness.READY ||
             disclosure == AddressDisclosure.ANDROID_ANONYMIZED && mutableCodeReadiness.value == CodeReadiness.ANONYMIZED_EXPERIMENT && consentToAnonymized
         if (!permitted || network.state.value.stage != NetworkStage.READY) {
-            cancelPrepared("La preparaci\u00f3n de red ya no est\u00e1 disponible; c\u00f3digo descartado")
+            cancelPrepared("Network preparation is no longer available; code discarded")
             return
         }
         prepareHandler.removeCallbacks(prepareExpiry)
@@ -307,23 +307,23 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 preferences.edit().putString("id", it).apply()
             }
             val hello = ClientInfo(id, Build.MODEL, pin, request.local.platformAddress, request.local.supports5Ghz, consentToAnonymized)
-            mutableConnectionNotice.value = "Intentando ClientInfo normal; espera confirmaci\u00f3n de escritura"
-            event("Identidad local=$disclosure; consentimiento experimental=$consentToAnonymized; sin valor de direcci\u00f3n")
-            event("PIN entregado al intercambio normal; valor omitido, env\u00edo todav\u00eda sin confirmar")
+            mutableConnectionNotice.value = "Trying normal ClientInfo; waiting for write confirmation"
+            event("Local identity=$disclosure; experimental consent=$consentToAnonymized; no address value")
+            event("PIN handed to the normal exchange; value omitted, sending not yet confirmed")
             if (automaticAuth) {
                 clearAutoAuth()
                 pendingAutoPin.set(pin.toByteArray(Charsets.US_ASCII))
                 prepareHandler.postDelayed(autoAuthExpiry, 60000)
-                event("AUTH automático autorizado para este intento; esperando red P2P; código omitido")
+                event("Automatic AUTH authorized for this attempt; waiting for P2P network; code omitted")
             }
             bootstrap.start(peer, hello) { info ->
-                mutableConnectionNotice.value = "Respuesta BLE recibida; red ${info.mode}; puerto=${info.portStatus}; autenticación pendiente"
-                event("ServerInfo recibido tras ClientInfo; solicitando red ${info.mode}; puerto=${info.portStatus}; rango=${info.portRange}")
+                mutableConnectionNotice.value = "BLE response received; network ${info.mode}; port=${info.portStatus}; authentication pending"
+                event("ServerInfo received after ClientInfo; requesting network ${info.mode}; port=${info.portStatus}; range=${info.portRange}")
                 network.connect(info)
             }
         } catch (_: IllegalArgumentException) {
-            clearAutoAuth("AUTH automático cancelado por datos inválidos")
-            network.stop(); mutableConnectionNotice.value = "ClientInfo no v\u00e1lido; no se enviaron datos"
+            clearAutoAuth("Automatic AUTH cancelled due to invalid data")
+            network.stop(); mutableConnectionNotice.value = "Invalid ClientInfo; no data sent"
             event(mutableConnectionNotice.value)
         }
     }
@@ -331,109 +331,109 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     fun background() {
         if (projection.active) {
             discovery.stop(); gatt.cancel(); usb.stop()
-            event("Sesión de proyección activa; se conserva en segundo plano hasta Detener")
+            event("Projection session active; kept in the background until Stop")
         } else if (preserveBackgroundHandoff(bootstrap.state.value.busy, network.systemWifiHandoff)) {
             discovery.stop(); gatt.cancel(); usb.stop()
-            event("Enlace BLE o red en curso; se conserva hasta 50 s en segundo plano, sin sesión ICCOA")
+            event("BLE link or network in progress; kept up to 50 s in the background, no ICCOA session")
             prepareHandler.removeCallbacks(backgroundExpiry)
             prepareHandler.postDelayed(backgroundExpiry, 50000)
-        } else stopAll("Activity en segundo plano (puede incluir selector de archivos o cambio de app)")
+        } else stopAll("Activity in background (may include file picker or app switch)")
     }
-    fun denied() { session.permissionDenied(); event("Permisos de descubrimiento denegados") }
+    fun denied() { session.permissionDenied(); event("Discovery permissions denied") }
     fun sendExperimentalAuth(pin: String) = sendExperimentalAuthBytes(pin.toByteArray(Charsets.US_ASCII))
     private fun sendExperimentalAuthBytes(pin: ByteArray) {
         val preferences = getApplication<Application>().getSharedPreferences("own-client", 0)
         val id = preferences.getString("id", null)
-        if (id == null) { pin.fill(0); event("No hay identidad local del intento; solicitud AUTH no iniciada"); return }
+        if (id == null) { pin.fill(0); event("No local identity for the attempt; AUTH request not started"); return }
         network.startAuthExchange(pin, id.toByteArray(Charsets.US_ASCII), Build.MODEL)
     }
     fun export(): String = buildString {
         appendLine("AionLink Open 0.41.0-research")
-        appendLine("Snapshot UTC: ${java.time.Instant.now()}; capturado antes del selector de archivos")
+        appendLine("Snapshot UTC: ${java.time.Instant.now()}; captured before the file picker")
         appendLine("Android API ${Build.VERSION.SDK_INT}")
-        appendLine("Estado: ${session.state.value}")
-        appendLine("Permisos: ${discovery.hasPermissions()}")
-        appendLine("Búsqueda activa: ${discovery.isScanning.value}")
-        appendLine("ICCOA: sin sesión verificada")
-        appendLine("Observaciones actuales: ${discovery.devices.value.size} (no equivale a dispositivos únicos)")
-        appendLine("Proceso local: $runId; eventos=${mutableEvents.value.size}; eventos anteriores omitidos=$droppedEvents")
-        appendLine("Formulario: ${mutableCodeReadiness.value}; solicitud visible=${mutablePinRequest.value != null}; valor de clave omitido")
-        appendLine("Intento local: $attemptNumber")
-        appendLine("Candidatos UUID: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}")
+        appendLine("State: ${session.state.value}")
+        appendLine("Permissions: ${discovery.hasPermissions()}")
+        appendLine("Search active: ${discovery.isScanning.value}")
+        appendLine("ICCOA: no verified session")
+        appendLine("Current observations: ${discovery.devices.value.size} (not equivalent to unique devices)")
+        appendLine("Local process: $runId; events=${mutableEvents.value.size}; earlier events omitted=$droppedEvents")
+        appendLine("Form: ${mutableCodeReadiness.value}; request visible=${mutablePinRequest.value != null}; key value omitted")
+        appendLine("Local attempt: $attemptNumber")
+        appendLine("UUID candidates: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}")
         discovery.devices.value.forEach { peer ->
-            appendLine("ID temporal=${peer.id}; transporte=${peer.transport}; RSSI=${peer.rssi}; conectable=${peer.connectable}; servicios anunciados=${peer.observedServiceCount}")
-            appendLine("Indicios UUID estáticos=${peer.recognizedServices.sorted().joinToString().ifEmpty { "ninguno" }}; compatibilidad=DESCONOCIDA")
+            appendLine("Temporary ID=${peer.id}; transport=${peer.transport}; RSSI=${peer.rssi}; connectable=${peer.connectable}; advertised services=${peer.observedServiceCount}")
+            appendLine("Static UUID hints=${peer.recognizedServices.sorted().joinToString().ifEmpty { "none" }}; compatibility=UNKNOWN")
         }
-        appendLine("No se incluyen nombres, MAC, PIN ni datos crudos de anuncios.")
+        appendLine("No names, MAC, PIN, or raw advertisement data are included.")
         val inspection = gatt.state.value
-        appendLine("Última inspección GATT: ${inspection.stage}; ID temporal=${inspection.peerId}; servicios=${inspection.serviceCount}; UnionShare=${inspection.unionSharePresent}; código=${inspection.statusCode}")
+        appendLine("Last GATT inspection: ${inspection.stage}; Temporary ID=${inspection.peerId}; services=${inspection.serviceCount}; UnionShare=${inspection.unionSharePresent}; code=${inspection.statusCode}")
         inspection.knownCharacteristics.forEach {
-            appendLine("Característica conocida=${it.uuid}; propiedades=${it.properties}; sin lectura de valor")
+            appendLine("Known characteristic=${it.uuid}; properties=${it.properties}; no value read")
         }
-        appendLine("Resultado GATT no equivale a sesión ICCOA; enlace de inspección se cierra al terminar.")
+        appendLine("GATT result is not equivalent to an ICCOA session; the inspection link closes when done.")
         val negotiation = bootstrap.state.value
-        appendLine("Intercambio BLE: ${negotiation.stage}; MTU=${negotiation.mtu}; enviados=${negotiation.bytesSent}; recibidos=${negotiation.bytesReceived}")
-        appendLine("Intercambio modo=${negotiation.mode}; escritura confirmada=${negotiation.writeConfirmed}")
-        appendLine("Intercambio detalle=${negotiation.message}")
-        appendLine("Preparaci\u00f3n: ${mutableConnectionNotice.value}")
-        appendLine("Red: ${network.state.value.stage}; modo=${network.state.value.mode}; ${network.state.value.message}")
-        appendLine("Prueba TCP AUTH: ${network.authProbe.value.stage}; resultado=${network.authProbe.value.detail}; duración ms=${network.authProbe.value.elapsedMs}; sin payload")
-        appendLine("Pruebas TCP AUTH en este proceso: ${network.authProbeCount}; último resultado conservado=${network.lastAuthProbe?.detail ?: "ninguno"}; duración ms=${network.lastAuthProbe?.elapsedMs}")
-        appendLine("AUTH automático pendiente: ${pendingAutoPin.pending}; sólo este intento; código omitido")
-        appendLine("Solicitud AUTH experimental: ${network.authExchange.value.stage}; ${network.authExchange.value.detail}; sesión no confirmada")
-        appendLine("PIN, MAC, SSID, PSK y contenido ServerInfo omitidos. Red conectada no implica autenticaci\u00f3n ICCOA.")
+        appendLine("BLE exchange: ${negotiation.stage}; MTU=${negotiation.mtu}; sent=${negotiation.bytesSent}; received=${negotiation.bytesReceived}")
+        appendLine("Exchange mode=${negotiation.mode}; write confirmed=${negotiation.writeConfirmed}")
+        appendLine("Exchange detail=${negotiation.message}")
+        appendLine("Preparation: ${mutableConnectionNotice.value}")
+        appendLine("Network: ${network.state.value.stage}; mode=${network.state.value.mode}; ${network.state.value.message}")
+        appendLine("TCP AUTH test: ${network.authProbe.value.stage}; result=${network.authProbe.value.detail}; duration ms=${network.authProbe.value.elapsedMs}; no payload")
+        appendLine("TCP AUTH tests in this process: ${network.authProbeCount}; last result kept=${network.lastAuthProbe?.detail ?: "none"}; duration ms=${network.lastAuthProbe?.elapsedMs}")
+        appendLine("Automatic AUTH pending: ${pendingAutoPin.pending}; this attempt only; code omitted")
+        appendLine("Experimental AUTH request: ${network.authExchange.value.stage}; ${network.authExchange.value.detail}; session not confirmed")
+        appendLine("PIN, MAC, SSID, PSK, and ServerInfo content omitted. A connected network does not imply ICCOA authentication.")
         val control = projection.control.value
-        appendLine("Canal CONTROL: ${control.stage}; recibidos=${control.received}; heartbeats recibidos=${control.heartbeatsReceived}; enviados=${control.heartbeatsSent}; ACK=${control.acksSent}; fallos descifrado=${control.decryptFailures}; categoría*1000+método=${control.lastMethods}")
-        appendLine("Configuración del coche: ${control.carConfig}")
+        appendLine("CONTROL channel: ${control.stage}; received=${control.received}; heartbeats received=${control.heartbeatsReceived}; sent=${control.heartbeatsSent}; ACK=${control.acksSent}; decryption failures=${control.decryptFailures}; category*1000+method=${control.lastMethods}")
+        appendLine("Car configuration: ${control.carConfig}")
         val rtsp = projection.rtsp.value
         appendLine("RTSP WFD: ${rtsp.stage}; ${rtsp.detail}")
-        appendLine("Receptor wfd_video_formats=${rtsp.sinkVideoFormats}")
-        appendLine("Receptor wfd_client_rtp_ports=${rtsp.sinkRtpPorts}")
-        appendLine("Receptor otros parámetros M3=${rtsp.sinkOther}")
-        appendLine("Receptor wfd_audio_codecs=${rtsp.sinkAudioCodecs}; wfd_car_display_mode=${rtsp.carDisplayMode}")
-        appendLine("Receptor wfd_uibc_capability=${rtsp.sinkUibc}")
+        appendLine("Receiver wfd_video_formats=${rtsp.sinkVideoFormats}")
+        appendLine("Receiver wfd_client_rtp_ports=${rtsp.sinkRtpPorts}")
+        appendLine("Receiver other M3 parameters=${rtsp.sinkOther}")
+        appendLine("Receiver wfd_audio_codecs=${rtsp.sinkAudioCodecs}; wfd_car_display_mode=${rtsp.carDisplayMode}")
+        appendLine("Receiver wfd_uibc_capability=${rtsp.sinkUibc}")
         appendLine(projection.auxiliary.value)
         val video = projection.stream.value
-        appendLine("Modo de proyección: ${if (projection.quality.carMode.value) "MODO COCHE (panel propio, pantalla apagada)" else "ESPEJO"}; " +
-            "acceso a música/navegación=${CarInfoListener.granted(getApplication())}; receptor Android Auto=${OpenHeadunit.label(getApplication())}")
-        appendLine("Calidad de imagen elegida: ${if (projection.quality.high.value) "ALTA (resolución de la pantalla del coche)" else "COMPATIBLE (1280x720)"}")
-        appendLine("Vídeo: ${video.stage}; ${video.detail}; unidades=${video.accessUnits}; datagramas RTP=${video.datagrams}; captura preparada=${ProjectionService.projection != null}; cuadros/s=${video.fps}; escrituras lentas=${video.slowWrites}")
+        appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (own panel, screen off)" else "MIRROR"}; " +
+            "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
+        appendLine("Chosen image quality: ${if (projection.quality.high.value) "HIGH (car screen resolution)" else "COMPATIBLE (1280x720)"}")
+        appendLine("Video: ${video.stage}; ${video.detail}; units=${video.accessUnits}; RTP datagrams=${video.datagrams}; capture ready=${ProjectionService.projection != null}; frames/s=${video.fps}; slow writes=${video.slowWrites}")
         val captured = ProjectionService.observation.value
-        appendLine("Captura Android: etapa=${captured.stage}; tamaño=${captured.width ?: "desconocido"}x${captured.height ?: "desconocido"}; visible=${captured.visible ?: "desconocido"}; no identifica aplicación")
-        appendLine("Lanzador: activado=${savings.launcher.value}; horizontal=${savings.landscape.value}; apps elegidas=${CarLauncherActivity.chosenCount(getApplication())}")
-        appendLine("Ahorro: brillo mínimo=${savings.enabled.value}; permiso ajustes=${savings.canWrite}; batería: ${savings.summary()}")
-        appendLine("Audio: ${video.audio}; tramas AAC=${video.audioFrames}")
+        appendLine("Android capture: stage=${captured.stage}; size=${captured.width ?: "unknown"}x${captured.height ?: "unknown"}; visible=${captured.visible ?: "unknown"}; does not identify the app")
+        appendLine("Launcher: enabled=${savings.launcher.value}; landscape=${savings.landscape.value}; chosen apps=${CarLauncherActivity.chosenCount(getApplication())}")
+        appendLine("Savings: minimum brightness=${savings.enabled.value}; settings permission=${savings.canWrite}; battery: ${savings.summary()}")
+        appendLine("Audio: ${video.audio}; AAC frames=${video.audioFrames}")
         val touch = projection.touch.value
-        appendLine("Táctil UIBC: ${touch.stage}; eventos=${touch.events}; aplicados=${touch.injected}; fuera de imagen=${touch.outside}; accesibilidad activa=${TouchInjectionService.instance != null}; sin coordenadas")
+        appendLine("UIBC touch: ${touch.stage}; events=${touch.events}; applied=${touch.injected}; outside image=${touch.outside}; accessibility active=${TouchInjectionService.instance != null}; no coordinates")
         val cable = usb.state.value
-        appendLine("USB: etapa=${cable.stage}; accesorios=${cable.accessories.size}; dispositivos en modo host=${cable.hostDevices}; alimentación reportada USB=${cable.usbPower}")
-        cable.accessories.forEach { appendLine("Accesorio temporal=${it.id}; identificador ICCOA observado=${it.observedIccoa}; permiso=${it.permission}") }
-        appendLine("USB recibidos=${cable.bytesRead}; frames=${cable.frames}; solicitudes experimentales enviadas=${cable.requestsSent}; puertos conocidos=${cable.knownPorts.sorted()}")
-        appendLine("USB detalle=${cable.message ?: "sin incidencias registradas"}")
-        appendLine("No se incluye serial USB ni payload. USB abierto no implica sesión ICCOA.")
+        appendLine("USB: stage=${cable.stage}; accessories=${cable.accessories.size}; host-mode devices=${cable.hostDevices}; reported USB power=${cable.usbPower}")
+        cable.accessories.forEach { appendLine("Temporary accessory=${it.id}; observed ICCOA identifier=${it.observedIccoa}; permission=${it.permission}") }
+        appendLine("USB received=${cable.bytesRead}; frames=${cable.frames}; experimental requests sent=${cable.requestsSent}; known ports=${cable.knownPorts.sorted()}")
+        appendLine("USB detail=${cable.message ?: "no incidents recorded"}")
+        appendLine("No USB serial or payload is included. An open USB does not imply an ICCOA session.")
         appendLine(virtualProbeJournal.snapshot())
         append(events.value.joinToString("\n"))
     }
     init {
         savings.restorePending()
         viewModelScope.launch { bootstrap.state.collect {
-            event("Intercambio BLE: ${it.stage}; ${it.message}")
+            event("BLE exchange: ${it.stage}; ${it.message}")
             if (it.stage in setOf(org.aionlink.bluetooth.BootstrapStage.ERROR, org.aionlink.bluetooth.BootstrapStage.CANCELLED) && bootstrap.state.value == it) {
-                clearAutoAuth("AUTH automático cancelado por fin de intercambio BLE")
+                clearAutoAuth("Automatic AUTH cancelled because the BLE exchange ended")
                 if (network.state.value.stage == NetworkStage.READY) network.stop()
             }
         } }
         viewModelScope.launch { network.state.collect {
-            event("Red: ${it.stage}; ${it.message}")
+            event("Network: ${it.stage}; ${it.message}")
             if (network.state.value == it && pendingAutoPin.pending) {
                 if (it.stage == NetworkStage.CONNECTED && it.mode == org.aionlink.iccoa.NetworkMode.P2P) {
                     val pin = pendingAutoPin.take() ?: return@collect
                     prepareHandler.removeCallbacks(autoAuthExpiry)
-                    event("Red P2P lista; iniciando AUTH automático autorizado para el intento #$attemptNumber")
+                    event("P2P network ready; starting authorized automatic AUTH for attempt #$attemptNumber")
                     sendExperimentalAuthBytes(pin)
                 } else if (it.stage in setOf(NetworkStage.ERROR, NetworkStage.CANCELLED) ||
                     (it.stage == NetworkStage.CONNECTED && it.mode != org.aionlink.iccoa.NetworkMode.P2P)) {
-                    clearAutoAuth("AUTH automático cancelado: red P2P no disponible")
+                    clearAutoAuth("Automatic AUTH cancelled: P2P network unavailable")
                 }
             }
             if (it.stage == NetworkStage.ERROR && mutablePinRequest.value != null) {
@@ -444,15 +444,15 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         } }
         network.onSessionAuthenticated = { local, key -> projection.onAuthenticated(local, key) }
         viewModelScope.launch { network.authProbe.collect {
-            event("Prueba TCP AUTH: ${it.stage}; ${it.detail}; duración ms=${it.elapsedMs}; sin payload ni sesión ICCOA")
+            event("TCP AUTH test: ${it.stage}; ${it.detail}; duration ms=${it.elapsedMs}; no payload or ICCOA session")
         } }
         viewModelScope.launch { network.authExchange.collect {
-            event("Solicitud AUTH experimental: ${it.stage}; ${it.detail}; sesión no confirmada")
+            event("Experimental AUTH request: ${it.stage}; ${it.detail}; session not confirmed")
         } }
         viewModelScope.launch { discovery.devices.collect { devices ->
         if (devices.isNotEmpty() && session.state.value in setOf(ConnectionState.DISCOVERING, ConnectionState.DEVICE_FOUND)) session.deviceFound()
     } } }
-    override fun onCleared() { stopHeadunitPreview(); stopOwnDisplayProbe(); VirtualProbeService.onReport = null; stopAll("ViewModel finalizado"); usb.close(); ProjectionService.stop(getApplication()) }
+    override fun onCleared() { stopHeadunitPreview(); stopOwnDisplayProbe(); VirtualProbeService.onReport = null; stopAll("ViewModel finished"); usb.close(); ProjectionService.stop(getApplication()) }
 }
 
 class MainActivity : ComponentActivity() {
@@ -499,7 +499,7 @@ class MainActivity : ComponentActivity() {
     }
     val captureContext = androidx.compose.ui.platform.LocalContext.current
     val audioPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        model.event(if (granted) "Permiso de audio concedido para captura de reproducción" else "Permiso de audio denegado; se proyectará sin sonido")
+        model.event(if (granted) "Audio permission granted for playback capture" else "Audio permission denied; will project without sound")
         val manager = captureContext.getSystemService(android.media.projection.MediaProjectionManager::class.java)
         capture.launch(manager.createScreenCaptureIntent())
     }
@@ -521,7 +521,7 @@ class MainActivity : ComponentActivity() {
     val networkPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         val request = authorizedConnect; authorizedConnect = null
         if (request != null && model.network.hasPermissions()) model.prepareConnection(request.first, request.second)
-        else model.event("Permisos Wi-Fi no concedidos; intercambio no iniciado")
+        else model.event("Wi-Fi permissions not granted; exchange not started")
     }
     var pendingUsb by remember { mutableStateOf<Pair<String,Boolean>?>(null) }
     var requestedIccoaOnly by remember { mutableStateOf(true) }
@@ -532,21 +532,21 @@ class MainActivity : ComponentActivity() {
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         val frozen = model.consumeExport()
         if (uri != null && frozen == null) {
-            model.event("La captura se perdi\u00f3 al recrear el proceso; vuelve a exportar. Archivo no abierto")
+            model.event("The capture was lost when the process was recreated; export again. File not opened")
         } else if (uri != null && frozen != null) try {
             val stream = context.contentResolver.openOutputStream(uri) ?: error("No output stream")
             stream.bufferedWriter().use { writer -> writer.write(frozen) }
-            model.event("Diagn\u00f3stico previo al selector exportado sin nombres ni direcciones Bluetooth")
-        } catch (_: Exception) { model.event("No se pudo exportar el diagn\u00f3stico") }
+            model.event("Pre-picker diagnostics exported without names or Bluetooth addresses")
+        } catch (_: Exception) { model.event("Could not export the diagnostics") }
 
     }
     pendingPeer?.let { peerId ->
         AlertDialog(
             onDismissRequest = { pendingPeer = null },
-            title = { Text("Comprobar el enlace con tu vehículo") },
-            text = { Text("Selecciona únicamente tu vehículo, estacionado. Se abrirá una conexión BLE para descubrir servicios y se cerrará al terminar. No se envía PIN ni autenticación y todavía no hay proyección.") },
-            confirmButton = { TextButton(onClick = { pendingPeer = null; model.inspect(peerId) }) { Text("Conectar a mi vehículo") } },
-            dismissButton = { TextButton(onClick = { pendingPeer = null }) { Text("Cancelar") } }
+            title = { Text("Check the link to your vehicle") },
+            text = { Text("Select only your own parked vehicle. A BLE connection will open to discover services and close when done. No PIN or authentication is sent, and there is no projection yet.") },
+            confirmButton = { TextButton(onClick = { pendingPeer = null; model.inspect(peerId) }) { Text("Connect to my vehicle") } },
+            dismissButton = { TextButton(onClick = { pendingPeer = null }) { Text("Cancel") } }
         )
     }
     if (pendingAuthProbe) AuthProbeDialog(
@@ -565,23 +565,23 @@ class MainActivity : ComponentActivity() {
     }
     pendingRead?.let { peerId ->
         AlertDialog(onDismissRequest = { pendingRead = null },
-            title = { Text("Consulta de diagn\u00f3stico a mi veh\u00edculo") },
-            text = { Text("Confirma que es tu veh\u00edculo estacionado. Se leer\u00e1 ServerInfo durante un m\u00e1ximo de 15 segundos, sin usar PIN ni enviar ClientInfo. La prueba anterior no obtuvo respuesta. Si devuelve par\u00e1metros v\u00e1lidos se intentar\u00e1 formar su red; esto no autentica ICCOA.") },
+            title = { Text("Diagnostic query to my vehicle") },
+            text = { Text("Confirm this is your parked vehicle. ServerInfo will be read for up to 15 seconds, without using a PIN or sending ClientInfo. The previous test got no response. If it returns valid parameters, forming its network will be attempted; this does not authenticate ICCOA.") },
             confirmButton = { TextButton(onClick = {
                 pendingRead = null
                 if (model.network.hasPermissions()) model.prepareConnection(peerId, true)
                 else { authorizedConnect = peerId to true; networkPermission.launch(model.network.requiredPermissions()) }
-            }) { Text("Consultar mi receptor") } },
-            dismissButton = { TextButton(onClick = { pendingRead = null }) { Text("Cancelar") } })
+            }) { Text("Query my receiver") } },
+            dismissButton = { TextButton(onClick = { pendingRead = null }) { Text("Cancel") } })
     }
     pendingUsb?.let { (id,bootstrap) ->
         AlertDialog(onDismissRequest = { pendingUsb = null },
-            title = { Text(if (bootstrap) "Inicio USB experimental" else "Abrir accesorio USB") },
+            title = { Text(if (bootstrap) "Experimental USB start" else "Open USB accessory") },
             text = { Text(if (bootstrap)
-                "Confirma que el accesorio es tu vehículo estacionado. Se enviarán dos solicitudes de canal observadas en Samsung, para RTSP y UIBC, y se leerán respuestas durante 15 segundos. Aún no hay autenticación ni proyección. No ha sido validado con el AION."
-                else "Confirma que es tu vehículo estacionado. Android pedirá autorización si hace falta. Se abrirá el canal AOA y se observarán datos durante 15 segundos, sin enviar mensajes. No se guardará el contenido.") },
-            confirmButton = { TextButton(onClick = { pendingUsb = null; model.usb.request(id,bootstrap) }) { Text("Continuar con mi vehículo") } },
-            dismissButton = { TextButton(onClick = { pendingUsb = null }) { Text("Cancelar") } })
+                "Confirm the accessory is your parked vehicle. Two channel requests observed on Samsung, for RTSP and UIBC, will be sent, and responses read for 15 seconds. There is no authentication or projection yet. It has not been validated with the AION."
+                else "Confirm this is your parked vehicle. Android will ask for authorization if needed. The AOA channel will open and data observed for 15 seconds, without sending messages. Content will not be saved.") },
+            confirmButton = { TextButton(onClick = { pendingUsb = null; model.usb.request(id,bootstrap) }) { Text("Continue with my vehicle") } },
+            dismissButton = { TextButton(onClick = { pendingUsb = null }) { Text("Cancel") } })
     }
     // Re-read permissions and services when the owner comes back from Android's settings.
     var resumeTick by remember { mutableIntStateOf(0) }
@@ -596,13 +596,13 @@ class MainActivity : ComponentActivity() {
     val linkPermissionRequest = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { resumeTick++ }
     val setup = remember(resumeTick, carMode, externalHeadunit) {
         buildList {
-            add(SetupItem("Bluetooth y dispositivos cercanos", "Para encontrar el coche y crear su red Wi-Fi Direct",
-                model.discovery.hasPermissions() && model.network.hasPermissions(), "Permitir") { linkPermissionRequest.launch(linkPermissions) })
-            add(SetupItem("Táctil del coche", "Accesibilidad → AionLink: tocar la pantalla del coche",
-                TouchInjectionService.instance != null, "Activar") {
+            add(SetupItem("Bluetooth and nearby devices", "To find the car and create its Wi-Fi Direct network",
+                model.discovery.hasPermissions() && model.network.hasPermissions(), "Allow") { linkPermissionRequest.launch(linkPermissions) })
+            add(SetupItem("Car touch", "Accessibility → AionLink: touch the car screen",
+                TouchInjectionService.instance != null, "Enable") {
                 context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             })
-            if (carMode && externalHeadunit) add(SetupItem("OpenHeadunit Lite", "Recibe Android Auto en el teléfono para llevarlo al coche",
+            if (carMode && externalHeadunit) add(SetupItem("OpenHeadunit Lite", "Receives Android Auto on the phone to bring it to the car",
                 OpenHeadunit.installed(context), null, null))
         }
     }
@@ -611,16 +611,16 @@ class MainActivity : ComponentActivity() {
         state in setOf(ConnectionState.CONNECTING, ConnectionState.PAIRING, ConnectionState.NEGOTIATING,
             ConnectionState.AUTHENTICATING, ConnectionState.SESSION_ESTABLISHED, ConnectionState.PROJECTION_ACTIVE))
     val status = when {
-        streaming -> HomeStatus(if (carMode && externalHeadunit) "Android Auto en el coche" else "Proyectando en el coche",
-            "Puedes apagar la pantalla del teléfono. ${videoStream.accessUnits} cuadros enviados", HomeTone.LIVE)
-        connecting -> HomeStatus("Conectando con el coche", connectionNotice, HomeTone.BUSY)
-        scanning -> HomeStatus("Buscando tu coche", "Abre CarLink en la pantalla del coche, con el coche estacionado", HomeTone.BUSY)
-        probeRunning || headunitPreview -> HomeStatus("Prueba local en curso", "No se envía nada al coche", HomeTone.BUSY)
+        streaming -> HomeStatus(if (carMode && externalHeadunit) "Android Auto in the car" else "Projecting to the car",
+            "You can turn off the phone screen. ${videoStream.accessUnits} frames sent", HomeTone.LIVE)
+        connecting -> HomeStatus("Connecting to the car", connectionNotice, HomeTone.BUSY)
+        scanning -> HomeStatus("Looking for your car", "Open CarLink on the car screen, with the car parked", HomeTone.BUSY)
+        probeRunning || headunitPreview -> HomeStatus("Local test in progress", "Nothing is sent to the car", HomeTone.BUSY)
         state in setOf(ConnectionState.TIMEOUT, ConnectionState.AUTHENTICATION_FAILED, ConnectionState.TRANSPORT_ERROR,
             ConnectionState.PERMISSION_DENIED, ConnectionState.PROTOCOL_UNSUPPORTED) ->
-            HomeStatus("No se pudo conectar", connectionNotice, HomeTone.PROBLEM)
-        setup.any { !it.done } -> HomeStatus("Falta un paso", "Completa la lista de abajo y vuelve a esta pantalla", HomeTone.IDLE)
-        else -> HomeStatus("Listo para conectar", "Abre CarLink en el coche y pulsa Buscar mi coche", HomeTone.IDLE)
+            HomeStatus("Could not connect", connectionNotice, HomeTone.PROBLEM)
+        setup.any { !it.done } -> HomeStatus("A step is missing", "Complete the list below and come back to this screen", HomeTone.IDLE)
+        else -> HomeStatus("Ready to connect", "Open CarLink in the car and tap Find my car", HomeTone.IDLE)
     }
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     val appName = remember { context.applicationInfo.loadLabel(context.packageManager).toString() }
@@ -633,13 +633,13 @@ class MainActivity : ComponentActivity() {
             if (setup.any { !it.done }) SetupCard(setup)
             if (streaming || connecting) {
                 Button(onClick = model::stop, modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Desconectar") }
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Disconnect") }
             } else {
                 Button(onClick = {
                     requestedIccoaOnly = true
                     if (model.discovery.hasPermissions()) model.scan() else permission.launch(model.discovery.requiredPermissions())
                 }, enabled = !scanning && !gattBusy && !probeRunning && !headunitPreview, modifier = Modifier.fillMaxWidth().height(56.dp)) {
-                    Text(if (scanning) "Buscando…" else "Buscar mi coche", style = MaterialTheme.typography.titleMedium)
+                    Text(if (scanning) "Searching…" else "Find my car", style = MaterialTheme.typography.titleMedium)
                 }
                 candidates.forEach { device ->
                     ReceiverRow(device.name, enabled = !gattBusy && device.connectable != false) {
@@ -647,168 +647,168 @@ class MainActivity : ComponentActivity() {
                         else { authorizedConnect = device.id to false; networkPermission.launch(model.network.requiredPermissions()) }
                     }
                 }
-                if (carMode && externalHeadunit) Text("Si Android Auto no aparece: en sus ajustes, menú ⋮ → «Iniciar servidor unidad princ.» " +
-                    "(de nuevo tras actualizar Android Auto o reiniciar el teléfono).",
+                if (carMode && externalHeadunit) Text("If Android Auto does not appear: in its settings, menu ⋮ → “Start head unit server” " +
+                    "(again after updating Android Auto or restarting the phone).",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             TextButton(onClick = { showAdvanced = !showAdvanced }, modifier = Modifier.fillMaxWidth()) {
-                Text(if (showAdvanced) "Ocultar opciones avanzadas ▴" else "Opciones avanzadas y diagnóstico ▾")
+                Text(if (showAdvanced) "Hide advanced options ▴" else "Advanced options and diagnostics ▾")
             }
             if (showAdvanced) Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Estado interno: $state", style = MaterialTheme.typography.titleSmall)
+            Text("Internal state: $state", style = MaterialTheme.typography.titleSmall)
             Text(connectionNotice, style = MaterialTheme.typography.bodyMedium)
             if (network.stage == NetworkStage.CONNECTED && network.mode == org.aionlink.iccoa.NetworkMode.P2P) {
-                Button(onClick = { pendingAuthExchange = true }, enabled = !authProbe.busy && !authExchange.busy) { Text("Intentar AUTH experimental") }
-                OutlinedButton(onClick = { pendingAuthProbe = true }, enabled = !authProbe.busy && !authExchange.busy) { Text("Solo comprobar puerto (sin autenticación)") }
+                Button(onClick = { pendingAuthExchange = true }, enabled = !authProbe.busy && !authExchange.busy) { Text("Try experimental AUTH") }
+                OutlinedButton(onClick = { pendingAuthProbe = true }, enabled = !authProbe.busy && !authExchange.busy) { Text("Only check port (no authentication)") }
             }
-            Text("Proyección", style = MaterialTheme.typography.titleLarge)
+            Text("Projection", style = MaterialTheme.typography.titleLarge)
             OutlinedButton(onClick = { model.projection.quality.setCarMode(!carMode) }, enabled = !probeRunning,
                 modifier = Modifier.fillMaxWidth()) {
-                Text(if (carMode) "Modo: COCHE (panel AionLink, pantalla del teléfono apagada)" else "Modo: ESPEJO (lo que muestra el teléfono)")
+                Text(if (carMode) "Mode: CAR (AionLink panel, phone screen off)" else "Mode: MIRROR (what the phone shows)")
             }
             if (carMode) {
-                Text("Modo coche: el coche muestra reloj, música con controles y la indicación de Maps o Waze. Puedes apagar la pantalla del teléfono tras conectar. " +
-                    "El sonido llega por el Bluetooth del coche; si además pulsas «Preparar captura» se intenta enviar por AionLink.")
+                Text("Car mode: the car shows a clock, music with controls, and Maps or Waze directions. You can turn off the phone screen after connecting. " +
+                    "Sound comes through the car's Bluetooth; if you also tap “Prepare capture”, sending it via AionLink is attempted.")
                 OutlinedButton(onClick = {
                     context.startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }, modifier = Modifier.fillMaxWidth()) {
-                    Text(if (CarInfoListener.granted(context)) "Música y navegación: acceso concedido" else "Permitir música y navegación (acceso a notificaciones)")
+                    Text(if (CarInfoListener.granted(context)) "Music and navigation: access granted" else "Allow music and navigation (notification access)")
                 }
-            } else Text("Antes de conectar, autoriza la captura de pantalla. Tras AUTH, el teléfono escucha CONTROL y RTSP; el vídeo empieza cuando el coche envíe PLAY.")
+            } else Text("Before connecting, authorize screen capture. After AUTH, the phone listens on CONTROL and RTSP; video starts when the car sends PLAY.")
             Button(onClick = { audioPermission.launch(android.Manifest.permission.RECORD_AUDIO) }, enabled = !probeRunning,
-                modifier = Modifier.fillMaxWidth()) { Text(if (carMode) "Preparar audio por AionLink (opcional)" else "Preparar captura de pantalla y audio") }
+                modifier = Modifier.fillMaxWidth()) { Text(if (carMode) "Prepare audio via AionLink (optional)" else "Prepare screen and audio capture") }
             if (carMode) {
                 OutlinedButton(onClick = { model.projection.quality.setExternalHeadunit(!externalHeadunit) },
                     enabled = videoStream.stage != "STREAMING" && videoStream.stage != "STARTING", modifier = Modifier.fillMaxWidth()) {
-                    Text(if (externalHeadunit) "Fuente próxima conexión: Android Auto (OpenHeadunit Lite en pantalla virtual)" else "Fuente próxima conexión: panel AionLink")
+                    Text(if (externalHeadunit) "Source for next connection: Android Auto (OpenHeadunit Lite on virtual display)" else "Source for next connection: AionLink panel")
                 }
                 if (externalHeadunit) {
-                    Text("Experimental: las versiones compatibles y firmadas igual pueden compartir vídeo directamente, sin actividad en pantalla virtual. " +
-                        "Vídeo, pantalla apagada y audio aún no verificados. El táctil en este modo no está implementado.")
+                    Text("Experimental: compatible versions signed with the same key can share video directly, with no virtual-display activity. " +
+                        "Video, screen-off, and audio are not yet verified. Touch is not implemented in this mode.")
                     OutlinedButton(onClick = { model.event(model.projection.showHeadunitOnCarDisplay(context)) },
-                        modifier = Modifier.fillMaxWidth()) { Text("Reintentar Android Auto en la pantalla virtual") }
+                        modifier = Modifier.fillMaxWidth()) { Text("Retry Android Auto on the virtual display") }
                     OutlinedButton(onClick = { if (headunitPreview) model.stopHeadunitPreview() else model.startHeadunitPreview(context) },
                         enabled = videoStream.stage != "STREAMING" && videoStream.stage != "STARTING", modifier = Modifier.fillMaxWidth()) {
-                        Text(if (headunitPreview) "Detener prueba local de Android Auto" else "Prueba local sin coche: Android Auto en pantalla virtual")
+                        Text(if (headunitPreview) "Stop local Android Auto test" else "Local test without the car: Android Auto on virtual display")
                     }
                 }
             }
             Text("Android Auto", style = MaterialTheme.typography.titleMedium)
             if (OpenHeadunit.installed(context)) {
-                Text("OpenHeadunit Lite muestra Android Auto en este teléfono; en modo ESPEJO, AionLink lo lleva a la pantalla del coche con táctil y sonido. " +
-                    "Necesita la pantalla encendida (usa brillo mínimo).")
+                Text("OpenHeadunit Lite shows Android Auto on this phone; in MIRROR mode, AionLink brings it to the car screen with touch and sound. " +
+                    "It needs the screen on (uses minimum brightness).")
                 OutlinedButton(onClick = { model.event(OpenHeadunit.startSelfMode(context)) }, enabled = !carMode,
-                    modifier = Modifier.fillMaxWidth()) { Text("Abrir Android Auto (OpenHeadunit Lite, self mode)") }
-            } else Text("Para ver Android Auto en el coche instala «OpenHeadunit Lite» (compilada desde el fork, misma firma que AionLink) y activa en Android Auto el servidor de unidad principal " +
-                "para desarrolladores. Es una app de terceros; AionLink solo la abre y comparte su pantalla.")
+                    modifier = Modifier.fillMaxWidth()) { Text("Open Android Auto (OpenHeadunit Lite, self mode)") }
+            } else Text("To see Android Auto in the car, install “OpenHeadunit Lite” (built from the fork, same signature as AionLink) and enable the head unit server for developers in Android Auto. " +
+                "It is a third-party app; AionLink only opens it and shares its screen.")
             OutlinedButton(onClick = { model.projection.quality.setHigh(!highQuality) }, enabled = !probeRunning,
                 modifier = Modifier.fillMaxWidth()) {
-                Text(if (highQuality) "Calidad de imagen: ALTA (resolución del coche, más nítida)" else "Calidad de imagen: COMPATIBLE (1280x720)")
+                Text(if (highQuality) "Image quality: HIGH (car resolution, sharper)" else "Image quality: COMPATIBLE (1280x720)")
             }
             if (Build.VERSION.SDK_INT >= 34) {
-                OutlinedButton(onClick = { showCaptureGuide = true }, enabled = !probeRunning, modifier = Modifier.fillMaxWidth()) { Text("Compartir una aplicación (experimental)") }
+                OutlinedButton(onClick = { showCaptureGuide = true }, enabled = !probeRunning, modifier = Modifier.fillMaxWidth()) { Text("Share an app (experimental)") }
             }
-            Text("Captura: ${captureObservation.stage} • visibilidad: ${captureObservation.visible?.toString() ?: "desconocida"}")
+            Text("Capture: ${captureObservation.stage} • visibility: ${captureObservation.visible?.toString() ?: "unknown"}")
             OutlinedButton(onClick = {
                 context.startActivity(Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }, modifier = Modifier.fillMaxWidth()) { Text(if (TouchInjectionService.instance == null) "Táctil del coche INACTIVO: pulsa y actívalo en accesibilidad" else "Táctil del coche activo (accesibilidad)") }
+            }, modifier = Modifier.fillMaxWidth()) { Text(if (TouchInjectionService.instance == null) "Car touch INACTIVE: tap and enable it in accessibility" else "Car touch active (accessibility)") }
             Button(onClick = { context.startActivity(Intent(context, CarLauncherActivity::class.java)) },
-                modifier = Modifier.fillMaxWidth()) { Text("Abrir lanzador y elegir mis apps") }
+                modifier = Modifier.fillMaxWidth()) { Text("Open launcher and choose my apps") }
             OutlinedButton(onClick = { model.savings.setLauncher(!carLauncher) },
-                modifier = Modifier.fillMaxWidth()) { Text(if (carLauncher) "Lanzador al abrir AionLink en el coche: activado" else "Lanzador desactivado: solo compartir pantalla") }
+                modifier = Modifier.fillMaxWidth()) { Text(if (carLauncher) "Launcher when opening AionLink in the car: enabled" else "Launcher off: screen sharing only") }
             OutlinedButton(onClick = {
                 if (forceLandscape || model.savings.canWrite) model.savings.setLandscape(!forceLandscape)
                 else context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,
                     android.net.Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }, modifier = Modifier.fillMaxWidth()) { Text(if (forceLandscape) "Horizontal al proyectar: activado" else "Horizontal al proyectar: desactivado") }
+            }, modifier = Modifier.fillMaxWidth()) { Text(if (forceLandscape) "Landscape while projecting: enabled" else "Landscape while projecting: disabled") }
             OutlinedButton(onClick = {
                 if (minBrightness || model.savings.canWrite) model.savings.setEnabled(!minBrightness)
                 else context.startActivity(Intent(android.provider.Settings.ACTION_MANAGE_WRITE_SETTINGS,
                     android.net.Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-            }, modifier = Modifier.fillMaxWidth()) { Text(if (minBrightness) "Brillo mínimo al proyectar: activado" else "Brillo mínimo al proyectar: desactivado") }
+            }, modifier = Modifier.fillMaxWidth()) { Text(if (minBrightness) "Minimum brightness while projecting: enabled" else "Minimum brightness while projecting: disabled") }
             OutlinedButton(onClick = { if (probeRunning) model.stopDisplayProbe() else model.startDisplayProbe() },
-                modifier = Modifier.fillMaxWidth()) { Text(if (probeRunning) "Detener prueba local" else "Prueba local (sin coche): dibujo propio, hasta 11 min") }
+                modifier = Modifier.fillMaxWidth()) { Text(if (probeRunning) "Stop local test" else "Local test (no car): own drawing, up to 11 min") }
             OutlinedButton(onClick = { model.startVirtualDisplayProbe() }, enabled = !probeRunning,
-                modifier = Modifier.fillMaxWidth()) { Text("Prueba local (sin coche): pantalla virtual con pantalla apagada, 12 min") }
-            Text("Pruebas de laboratorio: NO envían nada al coche. Solo miden en el teléfono si el vídeo sigue generándose con la pantalla apagada. Para ver el teléfono en el coche usa «Preparar captura de pantalla y audio» y conecta.")
-            if (probeRunning) Text("Prueba local en curso: la conexión al coche está bloqueada hasta detenerla. Apaga la pantalla con el botón de encendido, espera y después guarda el diagnóstico.")
-            Text("Táctil: ${if (TouchInjectionService.instance != null) "servicio activo" else "servicio no activado"} • UIBC ${touchState.stage} • eventos ${touchState.events} • aplicados ${touchState.injected}")
-            Text("CONTROL: ${controlChannel.stage} • recibidos ${controlChannel.received} • heartbeats ${controlChannel.heartbeatsReceived}/${controlChannel.heartbeatsSent}")
+                modifier = Modifier.fillMaxWidth()) { Text("Local test (no car): virtual display with screen off, 12 min") }
+            Text("Lab tests: they send NOTHING to the car. They only measure on the phone whether video keeps being generated with the screen off. To see the phone in the car, use “Prepare screen and audio capture” and connect.")
+            if (probeRunning) Text("Local test in progress: the car connection is blocked until you stop it. Turn off the screen with the power button, wait, then save the diagnostics.")
+            Text("Touch: ${if (TouchInjectionService.instance != null) "service active" else "service not enabled"} • UIBC ${touchState.stage} • events ${touchState.events} • applied ${touchState.injected}")
+            Text("CONTROL: ${controlChannel.stage} • received ${controlChannel.received} • heartbeats ${controlChannel.heartbeatsReceived}/${controlChannel.heartbeatsSent}")
             Text(auxiliary)
             Text("RTSP: ${rtspSession.stage} ${rtspSession.detail}")
-            Text("Vídeo: ${videoStream.stage} ${videoStream.detail} • ${videoStream.accessUnits} cuadros • ${videoStream.datagrams} RTP")
-            Text("Audio: ${videoStream.audio} • ${videoStream.audioFrames} tramas AAC")
-            Text("Canal AUTH: ${authProbe.stage} • ${authProbe.detail}")
-            Text("Solicitud AUTH: ${authExchange.stage} • ${authExchange.detail}")
-            Text("Buscar receptor ICCOA", style = MaterialTheme.typography.titleLarge)
-            Button(onClick = { requestedIccoaOnly = true; if (model.discovery.hasPermissions()) model.scan() else permission.launch(model.discovery.requiredPermissions()) }, enabled = !scanning && !gattBusy, modifier = Modifier.fillMaxWidth()) { Text("Buscar ICCOA CarLink") }
-            if (scanning) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Buscando durante 15 segundos...") }
+            Text("Video: ${videoStream.stage} ${videoStream.detail} • ${videoStream.accessUnits} frames • ${videoStream.datagrams} RTP")
+            Text("Audio: ${videoStream.audio} • ${videoStream.audioFrames} AAC frames")
+            Text("AUTH channel: ${authProbe.stage} • ${authProbe.detail}")
+            Text("AUTH request: ${authExchange.stage} • ${authExchange.detail}")
+            Text("Find ICCOA receiver", style = MaterialTheme.typography.titleLarge)
+            Button(onClick = { requestedIccoaOnly = true; if (model.discovery.hasPermissions()) model.scan() else permission.launch(model.discovery.requiredPermissions()) }, enabled = !scanning && !gattBusy, modifier = Modifier.fillMaxWidth()) { Text("Search ICCOA CarLink") }
+            if (scanning) { LinearProgressIndicator(Modifier.fillMaxWidth()); Text("Searching for 15 seconds...") }
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Candidatos ICCOA: ${candidates.size}", style = MaterialTheme.typography.titleLarge)
-                    if (candidates.isEmpty()) Text(if (scanning) "Esperando anuncios del receptor..." else "Sin indicios ICCOA. Abre ICCOA en el coche estacionado y busca de nuevo. Si no aparece, prueba la b\u00fasqueda general.")
+                    Text("ICCOA candidates: ${candidates.size}", style = MaterialTheme.typography.titleLarge)
+                    if (candidates.isEmpty()) Text(if (scanning) "Waiting for receiver advertisements..." else "No ICCOA indications. Open ICCOA in the parked car and search again. If it does not appear, try the general search.")
                     candidates.forEach { device ->
                         Text(device.name, style = MaterialTheme.typography.titleMedium)
                         Text("${device.transport} | RSSI ${device.rssi ?: "?"} | ID ${device.id}")
-                        Text("UUID compatible observado; identidad del veh\u00edculo sin confirmar.")
+                        Text("Compatible UUID observed; vehicle identity unconfirmed.")
                         Button(onClick = {
                             if (model.network.hasPermissions()) model.prepareConnection(device.id)
                             else { authorizedConnect = device.id to false; networkPermission.launch(model.network.requiredPermissions()) }
-                        }, enabled = !gattBusy && device.connectable != false, modifier = Modifier.fillMaxWidth()) { Text("Preparar conexi\u00f3n normal") }
-                        OutlinedButton(onClick = { pendingPeer = device.id }, enabled = !gattBusy && device.connectable != false, modifier = Modifier.fillMaxWidth()) { Text("Solo comprobar servicios BLE") }
-                        if (device.connectable == false) Text("El anuncio actual no permite conexi\u00f3n BLE.")
-                        TextButton(onClick = { pendingRead = device.id }, enabled = !gattBusy && device.connectable != false) { Text("Lectura experimental sin PIN") }
+                        }, enabled = !gattBusy && device.connectable != false, modifier = Modifier.fillMaxWidth()) { Text("Prepare normal connection") }
+                        OutlinedButton(onClick = { pendingPeer = device.id }, enabled = !gattBusy && device.connectable != false, modifier = Modifier.fillMaxWidth()) { Text("Only check BLE services") }
+                        if (device.connectable == false) Text("The current advertisement does not allow a BLE connection.")
+                        TextButton(onClick = { pendingRead = device.id }, enabled = !gattBusy && device.connectable != false) { Text("Experimental read without PIN") }
                         HorizontalDivider()
                     }
                 }
             }
-            Text("Comprobaci\u00f3n BLE: ${inspection.stage}")
-            Text("Intercambio: ${negotiation.stage} | Red: ${network.stage}", style = MaterialTheme.typography.titleMedium)
+            Text("BLE check: ${inspection.stage}")
+            Text("Exchange: ${negotiation.stage} | Network: ${network.stage}", style = MaterialTheme.typography.titleMedium)
             Text(negotiation.message)
             Text(network.message)
             if (negotiation.busy || network.busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-            if (operationBusy) Text("Espera el resultado para guardar el diagn\u00f3stico, o pulsa Detener para cancelar el intento.")
-            OutlinedButton(onClick = model::stop) { Text("Detener b\u00fasqueda / enlace") }
-            OutlinedButton(onClick = { requestedIccoaOnly = false; if (model.discovery.hasPermissions()) model.scan(false) else permission.launch(model.discovery.requiredPermissions()) }, enabled = !scanning && !gattBusy) { Text("B\u00fasqueda general Classic + BLE") }
-            TextButton(onClick = { showOthers = !showOthers }) { Text("${if (showOthers) "Ocultar" else "Mostrar"} otras observaciones (${devices.size - candidates.size})") }
+            if (operationBusy) Text("Wait for the result to save the diagnostics, or tap Stop to cancel the attempt.")
+            OutlinedButton(onClick = model::stop) { Text("Stop search / link") }
+            OutlinedButton(onClick = { requestedIccoaOnly = false; if (model.discovery.hasPermissions()) model.scan(false) else permission.launch(model.discovery.requiredPermissions()) }, enabled = !scanning && !gattBusy) { Text("General Classic + BLE search") }
+            TextButton(onClick = { showOthers = !showOthers }) { Text("${if (showOthers) "Hide" else "Show"} other observations (${devices.size - candidates.size})") }
             if (showOthers) devices.filter { it.recognizedServices.isEmpty() }.forEach { device ->
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
                     Text(device.name, style = MaterialTheme.typography.titleMedium)
                     Text("${device.transport} | ID ${device.id} | RSSI ${device.rssi ?: "?"}")
-                    Text("Sin UUID ICCOA reconocido. El nombre no identifica el protocolo.")
-                    if (device.transport == "BLE") OutlinedButton(onClick = { pendingPeer = device.id }, enabled = !gattBusy && device.connectable != false) { Text("Comprobar servicios BLE") }
+                    Text("No recognized ICCOA UUID. The name does not identify the protocol.")
+                    if (device.transport == "BLE") OutlinedButton(onClick = { pendingPeer = device.id }, enabled = !gattBusy && device.connectable != false) { Text("Check BLE services") }
                 } }
             }
-            OutlinedButton(enabled = !operationBusy, onClick = { if (model.captureExport()) export.launch("aionlink-diagnostics.txt") }) { Text("Guardar diagn\u00f3stico") }
-            Text("Conexión por cable", style = MaterialTheme.typography.titleLarge)
-            Text("USB: ${cable.stage} • Accesorios AOA: ${cable.accessories.size}")
-            Text("Alimentación reportada USB: ${cable.usbPower} • Dispositivos modo host: ${cable.hostDevices}")
-            OutlinedButton(onClick = model.usb::refresh) { Text("Actualizar USB") }
-            if (cable.accessories.isEmpty()) Text("Esperando accesorio AOA. Cargar el teléfono o tener ADB por cable no demuestra un enlace ICCOA; el receptor debe iniciar el modo accesorio.")
+            OutlinedButton(enabled = !operationBusy, onClick = { if (model.captureExport()) export.launch("aionlink-diagnostics.txt") }) { Text("Save diagnostics") }
+            Text("Wired connection", style = MaterialTheme.typography.titleLarge)
+            Text("USB: ${cable.stage} • AOA accessories: ${cable.accessories.size}")
+            Text("Reported USB power: ${cable.usbPower} • Host-mode devices: ${cable.hostDevices}")
+            OutlinedButton(onClick = model.usb::refresh) { Text("Refresh USB") }
+            if (cable.accessories.isEmpty()) Text("Waiting for an AOA accessory. Charging the phone or having wired ADB does not prove an ICCOA link; the receiver must start accessory mode.")
             cable.accessories.forEach { accessory ->
                 Card(Modifier.fillMaxWidth()) { Column(Modifier.padding(12.dp)) {
                     Text(accessory.label)
-                    Text("ID temporal ${accessory.id} • Permiso: ${accessory.permission}")
-                    OutlinedButton(onClick = { pendingUsb = accessory.id to false }, enabled = !cable.busy) { Text("Abrir USB y observar") }
-                    if (accessory.observedIccoa) OutlinedButton(onClick = { pendingUsb = accessory.id to true }, enabled = !cable.busy) { Text("Iniciar canales USB (experimental)") }
+                    Text("Temporary ID ${accessory.id} • Permission: ${accessory.permission}")
+                    OutlinedButton(onClick = { pendingUsb = accessory.id to false }, enabled = !cable.busy) { Text("Open USB and observe") }
+                    if (accessory.observedIccoa) OutlinedButton(onClick = { pendingUsb = accessory.id to true }, enabled = !cable.busy) { Text("Start USB channels (experimental)") }
                 } }
             }
-            if (cable.busy) OutlinedButton(onClick = { model.usb.stop("Cancelado por el usuario") }) { Text("Cerrar USB") }
-            Text("USB: ${cable.bytesRead} bytes recibidos; ${cable.frames} frames; ${cable.requestsSent} solicitudes enviadas")
+            if (cable.busy) OutlinedButton(onClick = { model.usb.stop("Cancelled by the user") }) { Text("Close USB") }
+            Text("USB: ${cable.bytesRead} bytes received; ${cable.frames} frames; ${cable.requestsSent} requests sent")
             cable.message?.let { Text(it) }
-            Text("Conexión ICCOA", style = MaterialTheme.typography.titleLarge)
-            Text("Enlace GATT: ${inspection.stage}")
+            Text("ICCOA connection", style = MaterialTheme.typography.titleLarge)
+            Text("GATT link: ${inspection.stage}")
             if (inspection.stage == GattStage.INSPECTED) {
-                Text("Enlace BLE comprobado y cerrado. Servicios: ${inspection.serviceCount}. UnionShare presente: ${inspection.unionSharePresent}.")
+                Text("BLE link checked and closed. Services: ${inspection.serviceCount}. UnionShare present: ${inspection.unionSharePresent}.")
                 inspection.knownCharacteristics.forEach { Text("${it.uuid} • propiedades ${it.properties}", style = MaterialTheme.typography.bodySmall) }
-                Text("Negociación ICCOA pendiente. Esta inspección no habilita proyección.")
+                Text("ICCOA negotiation pending. This inspection does not enable projection.")
             }
             inspection.error?.let { Text(it) }
-            Text("Objetivo: interfaz propia sobre ICCOA. Puente Android Auto y Huawei Car sin implementar; CarbitLink no identificado en este vehículo.")
-            Text("Perfil de investigación: ${VehicleProfiles.aionI60.brand} ${VehicleProfiles.aionI60.model} — NOT YET VERIFIED")
-            Text("Diagnóstico", style = MaterialTheme.typography.titleLarge)
-            Text("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\nPermisos concedidos: ${model.discovery.hasPermissions()}\nTransporte: descubrimiento Classic/BLE; sin canal de sesión")
-            OutlinedButton(enabled = !operationBusy, onClick = { if (model.captureExport()) export.launch("aionlink-diagnostics.txt") }) { Text("Exportar diagnóstico anonimizado") }
+            Text("Goal: own interface over ICCOA. Android Auto bridge and Huawei Car not implemented; CarbitLink not identified in this vehicle.")
+            Text("Research profile: ${VehicleProfiles.aionI60.brand} ${VehicleProfiles.aionI60.model} — NOT YET VERIFIED")
+            Text("Diagnostics", style = MaterialTheme.typography.titleLarge)
+            Text("Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})\nPermissions granted: ${model.discovery.hasPermissions()}\nTransport: Classic/BLE discovery; no session channel")
+            OutlinedButton(enabled = !operationBusy, onClick = { if (model.captureExport()) export.launch("aionlink-diagnostics.txt") }) { Text("Export anonymized diagnostics") }
             events.takeLast(20).forEach { Text(it, style = MaterialTheme.typography.bodySmall) }
             }
         }

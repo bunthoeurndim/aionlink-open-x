@@ -76,7 +76,7 @@ class WfdSource(
         sinkLogLines++
         // Bare lines count too: wfd_idr_request and GET_PARAMETER bodies carry no colon.
         val names = message.body.lines().map { it.substringBefore(':').trim() }.filter { it.isNotEmpty() }
-        onLog("RTSP del receptor: ${message.method}; parámetros=${names.map(WfdFormats::safeExcerpt)}")
+        onLog("Receiver RTSP: ${message.method}; parameters=${names.map(WfdFormats::safeExcerpt)}")
     }
 
     private fun publish(stage: String, detail: String = "") { status = status.copy(stage = stage, detail = detail); onStatus(status) }
@@ -136,10 +136,10 @@ class WfdSource(
                 val video = WfdFormats.chooseVideo(values["wfd_video_formats"])
                 val rtp = WfdFormats.clientRtpPorts(values["wfd_client_rtp_ports"])
                 if (video == null || rtp == null) {
-                    publish("M3_UNSUPPORTED", "vídeo=${video != null}; puertoRTP=${rtp != null}"); return
+                    publish("M3_UNSUPPORTED", "video=${video != null}; rtpPort=${rtp != null}"); return
                 }
                 mode = video; clientPort = rtp.port
-                publish("M3_OK", "modo=${video.width}x${video.height}p${video.fps}; transporte=${if (rtp.tcp) "TCP" else "UDP"}")
+                publish("M3_OK", "mode=${video.width}x${video.height}p${video.fps}; transport=${if (rtp.tcp) "TCP" else "UDP"}")
                 val body = buildString {
                     append("wfd_video_formats: ").append(video.m4Value()).append("\r\n")
                     audioCodec = WfdFormats.chooseAudio(values["wfd_audio_codecs"])
@@ -186,13 +186,13 @@ class WfdSource(
                 val tcp = transport.startsWith("RTP/AVP/TCP")
                 // The sink listens before sending SETUP; AOSP-derived sources connect to it while handling SETUP.
                 if (tcp && !connectRtpTcp(socket.inetAddress, rtp)) {
-                    publish("M6_TCP_FAILED", "puertoRTP=$rtp"); respond(output, seq, emptyList(), 500, "Internal Server Error"); return
+                    publish("M6_TCP_FAILED", "rtpPort=$rtp"); respond(output, seq, emptyList(), 500, "Internal Server Error"); return
                 }
                 val profile = if (tcp) "TCP" else "UDP"
                 // MiAuto's sink rejects anything other than server_port=<even>-<even+1>, whatever client_port had.
                 respond(output, seq, listOf("Session: $sessionId;timeout=30",
                     "Transport: RTP/AVP/$profile;unicast;client_port=$clientPart;server_port=$rtpServerPort-${rtpServerPort + 1}"))
-                publish("M6_SETUP", "puertoRTP=$rtp; transporte=$profile")
+                publish("M6_SETUP", "rtpPort=$rtp; transport=$profile")
             }
             "PLAY" -> {
                 respond(output, seq, listOf("Session: $sessionId", "Range: npt=now-"))

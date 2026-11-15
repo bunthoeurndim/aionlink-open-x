@@ -8,7 +8,7 @@ class PlatformP2pAddress private constructor(private val value: String?, val dis
     fun forClientInfo(consentToAnonymized: Boolean): String {
         require(disclosure == AddressDisclosure.AVAILABLE ||
             disclosure == AddressDisclosure.ANDROID_ANONYMIZED && consentToAnonymized) {
-            "Dato local no disponible o experimento no autorizado"
+            "Local data unavailable or experiment not authorized"
         }
         return requireNotNull(value)
     }

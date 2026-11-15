@@ -11,14 +11,14 @@ class ClientInfo(private val id: String, private val model: String, private val 
     private val p2pMac = platformAddress.forClientInfo(consentToAnonymized)
     val usesAnonymizedMetadata = platformAddress.disclosure == AddressDisclosure.ANDROID_ANONYMIZED
     init {
-        require(id.matches(Regex("[A-Za-z0-9]{6}"))) { "Identidad local no válida" }
-        require(model.isNotBlank() && model.toByteArray(Charsets.UTF_8).size <= 64) { "Modelo local no válido" }
-        require(pin.matches(Regex("[0-9]{6}"))) { "Se requieren seis dígitos" }
+        require(id.matches(Regex("[A-Za-z0-9]{6}"))) { "Invalid local identity" }
+        require(model.isNotBlank() && model.toByteArray(Charsets.UTF_8).size <= 64) { "Invalid local model" }
+        require(pin.matches(Regex("[0-9]{6}"))) { "Six digits required" }
     }
     fun encode(): ByteArray = JSONObject().put("id", id).put("model", model)
         .put("name", "AionLink Open").put("pinCodeOrAuthentication", pin)
         .put("band", if (supports5Ghz) 1 else 0).put("mac", p2pMac).put("type", 1001)
-        .toString().toByteArray(Charsets.UTF_8).also { require(it.size <= 512) { "ClientInfo excede el límite GATT" } }
+        .toString().toByteArray(Charsets.UTF_8).also { require(it.size <= 512) { "ClientInfo exceeds the GATT limit" } }
     override fun toString() = "ClientInfo(redacted)"
 }
 
@@ -31,7 +31,7 @@ fun validUnicastMac(value: String): Boolean {
 /** Ephemeral network parameters from the selected peer, never diagnostics or persistence. */
 enum class NetworkMode(val wireValue: Int) { P2P(1001), ACCESS_POINT(1002) }
 enum class ServerInfoFault { SIZE, UTF8, JSON, MODE, REQUIRED_FIELDS, SSID, PSK, MAC, FREQUENCY, PORT }
-class ServerInfoException(val fault: ServerInfoFault) : IllegalArgumentException("ServerInfo no válido: $fault; contenido omitido")
+class ServerInfoException(val fault: ServerInfoFault) : IllegalArgumentException("Invalid ServerInfo: $fault; contenido omitido")
 
 enum class ServerPortStatus { VALID, MISSING, EMPTY, NON_INTEGER, OUT_OF_RANGE, UNSUPPORTED_TYPE }
 enum class ServerPortRange { NONE, ZERO, NEGATIVE, ABOVE_MAX, OVERFLOW }

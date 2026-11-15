@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicLong
 data class ControlChannelStatus(
     val stage: String = "IDLE", val received: Int = 0, val heartbeatsReceived: Int = 0,
     val heartbeatsSent: Int = 0, val acksSent: Int = 0, val lastMethods: List<Int> = emptyList(),
-    val decryptFailures: Int = 0, val carConfig: String = "sin respuesta"
+    val decryptFailures: Int = 0, val carConfig: String = "no response"
 )
 
 /** Header of a frame received from the car; the payload stays inside the channel. */
@@ -66,7 +66,7 @@ class SessionControlServer(
             "get_app_list_response", "get_app_detail_info_request", "get_app_detail_info_response", "invoke_app",
             "app_state_changed", "app_list_changed", "poi_address", "call_info", "pick_up_call")
 
-        fun methodName(method: Int): String = if (method == 0) "ack" else METHOD_NAMES.getOrNull(method - 1) ?: "desconocido"
+        fun methodName(method: Int): String = if (method == 0) "ack" else METHOD_NAMES.getOrNull(method - 1) ?: "unknown"
     }
     private val key = sessionKey.copyOf().also { sessionKey.fill(0) }
     private val sequence = AtomicLong(1)
@@ -77,7 +77,7 @@ class SessionControlServer(
     @Volatile private var client: Socket? = null
     @Volatile private var closed = false
     @Volatile private var stage = "IDLE"
-    @Volatile private var carConfig = "sin respuesta"
+    @Volatile private var carConfig = "no response"
 
     private fun publish(next: String? = null) {
         if (next != null) stage = next
@@ -162,7 +162,7 @@ class SessionControlServer(
                 val fields = mutableListOf<String>()
                 ProtoScan.walk(it, onVarint = { field, value -> fields += "$field=$value" })
                 send(output, UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_PB3, UCarFrameWriter.TYPE_SEND_SYNC), METHOD_APP_STATE_CHANGED, it)
-                onSent("app_state_changed; tipo=3; campos=$fields")
+                onSent("app_state_changed; type=3; fields=$fields")
             }
         }
     }

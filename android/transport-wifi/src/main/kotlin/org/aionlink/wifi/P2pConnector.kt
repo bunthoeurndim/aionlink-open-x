@@ -23,15 +23,15 @@ import java.net.NetworkInterface
 import java.net.Socket
 
 enum class NetworkStage { IDLE, PREPARING, READY, CONNECTING, CONNECTED, ERROR, CANCELLED }
-data class P2pStatus(val stage: NetworkStage = NetworkStage.IDLE, val message: String = "Red sin preparar", val mode: NetworkMode? = null) {
+data class P2pStatus(val stage: NetworkStage = NetworkStage.IDLE, val message: String = "Network not prepared", val mode: NetworkMode? = null) {
     val busy get() = stage in setOf(NetworkStage.PREPARING, NetworkStage.CONNECTING)
     val handoffActive get() = stage in setOf(NetworkStage.CONNECTING, NetworkStage.CONNECTED)
 }
 enum class AuthProbeStage { IDLE, RUNNING, FINISHED, UNAVAILABLE, CANCELLED }
-data class AuthProbeStatus(val stage: AuthProbeStage = AuthProbeStage.IDLE, val detail: String = "Sin comprobar", val elapsedMs: Long? = null) {
+data class AuthProbeStatus(val stage: AuthProbeStage = AuthProbeStage.IDLE, val detail: String = "Not checked", val elapsedMs: Long? = null) {
     val busy get() = stage == AuthProbeStage.RUNNING
 }
-data class AuthExchangeStatus(val stage: AuthProbeStage = AuthProbeStage.IDLE, val detail: String = "Sin iniciar") {
+data class AuthExchangeStatus(val stage: AuthProbeStage = AuthProbeStage.IDLE, val detail: String = "Not started") {
     val busy get() = stage == AuthProbeStage.RUNNING
 }
 class LocalP2p(val platformAddress: PlatformP2pAddress, val supports5Ghz: Boolean) {
@@ -85,31 +85,31 @@ class P2pConnector(context: Context) {
         override fun onFailure(reason: Int) {
             if (ticket != generation) return
             val detail = when (reason) {
-                WifiP2pManager.BUSY -> "BUSY; Android está ocupado, espera antes de reintentar"
-                WifiP2pManager.P2P_UNSUPPORTED -> "P2P_UNSUPPORTED; función no disponible"
-                WifiP2pManager.ERROR -> "ERROR; fallo interno de Android"
-                else -> "código $reason"
+                WifiP2pManager.BUSY -> "BUSY; Android is busy, wait before retrying"
+                WifiP2pManager.P2P_UNSUPPORTED -> "P2P_UNSUPPORTED; feature unavailable"
+                WifiP2pManager.ERROR -> "ERROR; internal Android failure"
+                else -> "code $reason"
             }
-            fail("Wi-Fi Direct no inició la operación: $detail")
+            fail("Wi-Fi Direct did not start the operation: $detail")
         }
     }
     fun prepare(onReady: (LocalP2p) -> Unit) {
         stop()
         mutableProbe.value = AuthProbeStatus()
-        if (!hasPermissions()) { fail("Falta permiso de dispositivos Wi-Fi cercanos"); return }
-        if (wifi?.isWifiEnabled != true || manager == null) { fail("Activa Wi-Fi para preparar el enlace"); return }
+        if (!hasPermissions()) { fail("Missing nearby Wi-Fi devices permission"); return }
+        if (wifi?.isWifiEnabled != true || manager == null) { fail("Turn on Wi-Fi to prepare the link"); return }
         val ticket = generation
-        mutable.value = P2pStatus(NetworkStage.PREPARING, "Solicitando identidad Wi-Fi Direct a Android")
-        arm(10000, "Android no entregó los datos P2P a tiempo")
+        mutable.value = P2pStatus(NetworkStage.PREPARING, "Requesting Wi-Fi Direct identity from Android")
+        arm(10000, "Android did not deliver the P2P data in time")
         try {
             val connection = manager.initialize(context, Looper.getMainLooper()) {
-                if (ticket == generation) fail("Canal Wi-Fi Direct cerrado por Android")
+                if (ticket == generation) fail("Wi-Fi Direct channel closed by Android")
             }
             channel = connection
-            if (connection == null) { fail("Wi-Fi Direct no disponible"); return }
+            if (connection == null) { fail("Wi-Fi Direct unavailable"); return }
             manager.requestGroupInfo(connection) { existing ->
                 if (ticket != generation) return@requestGroupInfo
-                if (existing != null) { fail("Ya existe un grupo Wi-Fi Direct. Finalízalo antes de conectar AionLink"); return@requestGroupInfo }
+                if (existing != null) { fail("A Wi-Fi Direct group already exists. End it before connecting AionLink"); return@requestGroupInfo }
                 try {
                     manager.requestDeviceInfo(connection) { device ->
                         if (ticket != generation) return@requestDeviceInfo
@@ -117,29 +117,29 @@ class P2pConnector(context: Context) {
                         val identity = PlatformP2pAddress.fromPlatform(address)
                         disarm()
                         publish(NetworkStage.READY, when (identity.disclosure) {
-                            AddressDisclosure.AVAILABLE -> "Identidad P2P local preparada; sin enlace remoto"
-                            AddressDisclosure.ANDROID_ANONYMIZED -> "Android devolvió un dato anonimizado; experimento posible sólo con consentimiento"
-                            AddressDisclosure.UNAVAILABLE -> "Android no devolvió metadatos P2P utilizables"
+                            AddressDisclosure.AVAILABLE -> "Local P2P identity prepared; no remote link"
+                            AddressDisclosure.ANDROID_ANONYMIZED -> "Android returned anonymized data; experiment only possible with consent"
+                            AddressDisclosure.UNAVAILABLE -> "Android did not return usable P2P metadata"
                         })
                         onReady(LocalP2p(identity, wifi.is5GHzBandSupported))
                     }
-                } catch (_: SecurityException) { fail("Permisos Wi-Fi revocados") }
+                } catch (_: SecurityException) { fail("Wi-Fi permissions revoked") }
             }
-        } catch (_: SecurityException) { fail("Permisos Wi-Fi pendientes") }
-        catch (_: IllegalStateException) { fail("Wi-Fi Direct no disponible") }
+        } catch (_: SecurityException) { fail("Wi-Fi permissions pending") }
+        catch (_: IllegalStateException) { fail("Wi-Fi Direct unavailable") }
     }
     fun connect(info: ServerInfo) {
         val connection = channel
         val radio = manager
         if (connection == null || radio == null || mutable.value.stage != NetworkStage.READY) {
-            fail("La preparación P2P ya no está disponible"); return
+            fail("P2P preparation is no longer available"); return
         }
         val ticket = generation
         mutable.value = mutable.value.copy(mode = info.mode)
         if (info.mode == NetworkMode.ACCESS_POINT) { connectAccessPoint(info, ticket); return }
         target = Target(info.ssid, info.mac)
-        publish(NetworkStage.CONNECTING, "Solicitando red Wi-Fi Direct del receptor; acepta el diálogo Android si aparece")
-        arm(45000, "No se formó la red Wi-Fi Direct en 45 segundos")
+        publish(NetworkStage.CONNECTING, "Requesting the receiver's Wi-Fi Direct network; accept the Android dialog if it appears")
+        arm(45000, "The Wi-Fi Direct network did not form within 45 seconds")
         try {
             val filter = IntentFilter(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)
             if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
@@ -150,32 +150,32 @@ class P2pConnector(context: Context) {
                 .setGroupOperatingFrequency(info.frequency).enablePersistentMode(false).build()
             submitted = true
             radio.connect(connection, config, action(ticket) { checkConnection(ticket) })
-        } catch (_: SecurityException) { fail("Permisos Wi-Fi revocados") }
-        catch (_: IllegalArgumentException) { fail("Android no admite los parámetros P2P recibidos; contenido omitido") }
-        catch (_: IllegalStateException) { fail("Wi-Fi Direct no disponible") }
+        } catch (_: SecurityException) { fail("Wi-Fi permissions revoked") }
+        catch (_: IllegalArgumentException) { fail("Android does not support the received P2P parameters; content omitted") }
+        catch (_: IllegalStateException) { fail("Wi-Fi Direct unavailable") }
     }
     private fun connectAccessPoint(info: ServerInfo, ticket: Int) {
-        val service = connectivity ?: return fail("Servicio de red no disponible")
-        publish(NetworkStage.CONNECTING, "El receptor indicó modo AP; acepta la conexión Wi-Fi solicitada por Android")
-        arm(45000, "La red AP del receptor no se obtuvo en 45 segundos")
+        val service = connectivity ?: return fail("Network service unavailable")
+        publish(NetworkStage.CONNECTING, "The receiver indicated AP mode; accept the Wi-Fi connection requested by Android")
+        arm(45000, "The receiver's AP network was not obtained within 45 seconds")
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 if (ticket != generation || apCallback !== this) return
                 apNetwork = network; disarm()
-                publish(NetworkStage.CONNECTED, "Android concedió la red AP solicitada para este receptor. Autenticación ICCOA pendiente")
+                publish(NetworkStage.CONNECTED, "Android granted the requested AP network for this receiver. ICCOA authentication pending")
             }
             override fun onUnavailable() {
-                if (ticket == generation && apCallback === this) fail("Android no autorizó o no pudo obtener la red AP solicitada")
+                if (ticket == generation && apCallback === this) fail("Android did not authorize or could not obtain the requested AP network")
             }
             override fun onLost(network: Network) {
-                if (ticket == generation && apCallback === this && apNetwork == network) fail("La red AP concedida se desconectó")
+                if (ticket == generation && apCallback === this && apNetwork == network) fail("The granted AP network disconnected")
             }
         }
         apCallback = callback
         try { service.requestNetwork(accessPointRequest(info), callback, handler, 45000) }
-        catch (_: SecurityException) { fail("Android no autorizó la solicitud de red AP") }
-        catch (_: IllegalArgumentException) { fail("Parámetros de red AP no admitidos; contenido omitido") }
-        catch (_: IllegalStateException) { fail("Solicitud de red AP no disponible") }
+        catch (_: SecurityException) { fail("Android did not authorize the AP network request") }
+        catch (_: IllegalArgumentException) { fail("AP network parameters not supported; content omitted") }
+        catch (_: IllegalStateException) { fail("AP network request unavailable") }
     }
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -191,7 +191,7 @@ class P2pConnector(context: Context) {
             radio.requestConnectionInfo(connection) { link ->
                 if (ticket != generation) return@requestConnectionInfo
                 if (!link.groupFormed) {
-                    if (mutable.value.stage == NetworkStage.CONNECTED) fail("La red del receptor se desconectó")
+                    if (mutable.value.stage == NetworkStage.CONNECTED) fail("The receiver's network disconnected")
                     return@requestConnectionInfo
                 }
                 try {
@@ -200,7 +200,7 @@ class P2pConnector(context: Context) {
                         val expected = target ?: return@requestGroupInfo
                         if (group == null || link.isGroupOwner || group.networkName != expected.ssid ||
                             group.owner?.deviceAddress?.equals(expected.mac, true) != true) {
-                            fail("El grupo formado no coincide con el receptor seleccionado; no se declara conectado")
+                            fail("The formed group does not match the selected receiver; not reported as connected")
                             return@requestGroupInfo
                         }
                         ownedGroup = true
@@ -210,11 +210,11 @@ class P2pConnector(context: Context) {
                             !ownerAddress.isLoopbackAddress && !ownerAddress.isMulticastAddress && !interfaceName.isNullOrBlank())
                             VerifiedEndpoint(ownerAddress, interfaceName) else null
                         disarm()
-                        publish(NetworkStage.CONNECTED, "Red del receptor conectada. Autenticación ICCOA y proyección pendientes")
+                        publish(NetworkStage.CONNECTED, "Receiver network connected. ICCOA authentication and projection pending")
                     }
-                } catch (_: SecurityException) { fail("Permisos Wi-Fi revocados") }
+                } catch (_: SecurityException) { fail("Wi-Fi permissions revoked") }
             }
-        } catch (_: SecurityException) { fail("Permisos Wi-Fi revocados") }
+        } catch (_: SecurityException) { fail("Wi-Fi permissions revoked") }
     }
     private fun arm(ms: Long, message: String) {
         disarm()
@@ -227,17 +227,17 @@ class P2pConnector(context: Context) {
         if (mutableProbe.value.busy || mutableExchange.value.busy) return
         authProbeCount++
         if (mutable.value.stage != NetworkStage.CONNECTED || mutable.value.mode != NetworkMode.P2P) {
-            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "P2P del receptor no conectado"))
+            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "Receiver P2P not connected"))
             return
         }
         val endpoint = verifiedEndpoint
         if (endpoint == null) {
-            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "Android no proporcionó destino e interfaz del grupo"))
+            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "Android did not provide the group destination and interface"))
             return
         }
         val service = connectivity
         if (service == null) {
-            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "Servicio de red no disponible"))
+            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "Network service unavailable"))
             return
         }
         val matchedNetwork = try {
@@ -253,14 +253,14 @@ class P2pConnector(context: Context) {
         } catch (_: java.net.SocketException) { null } catch (_: SecurityException) { null }
         else null
         if (matchedNetwork == null && sourceAddress == null) {
-            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "Sin Network P2P ni dirección local inequívoca de la interfaz del grupo"))
+            finishProbe(AuthProbeStatus(AuthProbeStage.UNAVAILABLE, "No P2P Network or unambiguous local address for the group interface"))
             return
         }
         val routeMode = if (matchedNetwork != null) "NETWORK" else "P2P_SOURCE"
         val ticket = ++probeGeneration
         val socket = Socket()
         probeSocket = socket
-        mutableProbe.value = AuthProbeStatus(AuthProbeStage.RUNNING, "Comprobando canal TCP; ruta=$routeMode; sin enviar datos")
+        mutableProbe.value = AuthProbeStatus(AuthProbeStage.RUNNING, "Checking TCP channel; route=$routeMode; no data sent")
         val started = SystemClock.elapsedRealtime()
         Thread {
             val result = OneShotTcpProbe.check(socket, endpoint.address, 57209, 2500) {
@@ -271,7 +271,7 @@ class P2pConnector(context: Context) {
             handler.post {
                 if (ticket != probeGeneration) return@post
                 probeSocket = null
-                finishProbe(AuthProbeStatus(AuthProbeStage.FINISHED, "${result.name}; ruta=$routeMode", elapsed))
+                finishProbe(AuthProbeStatus(AuthProbeStage.FINISHED, "${result.name}; route=$routeMode", elapsed))
             }
         }.apply { name = "AionLink-auth-check"; isDaemon = true; start() }
     }
@@ -284,9 +284,9 @@ class P2pConnector(context: Context) {
         if (mutableProbe.value.busy || mutableExchange.value.busy) { pin.fill(0); clientId.fill(0); return }
         val endpoint = verifiedEndpoint
         if (mutable.value.stage != NetworkStage.CONNECTED || mutable.value.mode != NetworkMode.P2P || endpoint == null) {
-            unavailable("Grupo P2P del receptor no disponible"); return
+            unavailable("Receiver P2P group unavailable"); return
         }
-        val service = connectivity ?: run { unavailable("Servicio de red no disponible"); return }
+        val service = connectivity ?: run { unavailable("Network service unavailable"); return }
         val matched = try {
             @Suppress("DEPRECATION")
             service.allNetworks.firstOrNull { service.getLinkProperties(it)?.interfaceName == endpoint.interfaceName }
@@ -297,17 +297,17 @@ class P2pConnector(context: Context) {
             } ?: emptyList()
             P2pSourceAddress.select(endpoint.address, addresses)
         } catch (_: java.net.SocketException) { null } catch (_: SecurityException) { null } else null
-        if (matched == null && source == null) { unavailable("Ruta P2P no disponible"); return }
+        if (matched == null && source == null) { unavailable("P2P route unavailable"); return }
         val ticket = ++probeGeneration
         val socket = Socket(); probeSocket = socket
         val route = if (matched != null) "NETWORK" else "P2P_SOURCE"
-        mutableExchange.value = AuthExchangeStatus(AuthProbeStage.RUNNING, "Solicitud AUTH experimental; ruta=$route")
+        mutableExchange.value = AuthExchangeStatus(AuthProbeStage.RUNNING, "Experimental AUTH request; route=$route")
         val deadline = Runnable {
             if (ticket == probeGeneration && mutableExchange.value.busy) {
                 probeGeneration++
                 try { socket.close() } catch (_: java.io.IOException) { }
                 probeSocket = null; exchangeTimeout = null
-                mutableExchange.value = AuthExchangeStatus(AuthProbeStage.FINISHED, "TIMEOUT_TOTAL; ruta=$route")
+                mutableExchange.value = AuthExchangeStatus(AuthProbeStage.FINISHED, "TIMEOUT_TOTAL; route=$route")
             }
         }
         exchangeTimeout = deadline; handler.postDelayed(deadline, 10000)
@@ -319,12 +319,12 @@ class P2pConnector(context: Context) {
             handler.post {
                 if (ticket != probeGeneration) return@post
                 handler.removeCallbacks(deadline); exchangeTimeout = null; probeSocket = null
-                mutableExchange.value = AuthExchangeStatus(AuthProbeStage.FINISHED, "$result; ruta=$route; sesión no confirmada")
+                mutableExchange.value = AuthExchangeStatus(AuthProbeStage.FINISHED, "$result; route=$route; session not confirmed")
             }
         }.apply { name = "AionLink-auth-request"; isDaemon = true; start() }
     }
     private fun fail(message: String) { release(); publish(NetworkStage.ERROR, message) }
-    fun stop(reason: String = "Preparación/red de AionLink detenida") {
+    fun stop(reason: String = "AionLink preparation/network stopped") {
         val wasActive = mutable.value.stage !in setOf(NetworkStage.IDLE, NetworkStage.ERROR, NetworkStage.CANCELLED)
         release()
         if (wasActive) publish(NetworkStage.CANCELLED, reason)
@@ -335,8 +335,8 @@ class P2pConnector(context: Context) {
         exchangeTimeout?.let(handler::removeCallbacks); exchangeTimeout = null
         try { probeSocket?.close() } catch (_: java.io.IOException) { }
         probeSocket = null
-        if (mutableProbe.value.busy) finishProbe(AuthProbeStatus(AuthProbeStage.CANCELLED, "La red o el intento se detuvo"))
-        if (mutableExchange.value.busy) mutableExchange.value = AuthExchangeStatus(AuthProbeStage.CANCELLED, "La red o el intento se detuvo")
+        if (mutableProbe.value.busy) finishProbe(AuthProbeStatus(AuthProbeStage.CANCELLED, "The network or attempt stopped"))
+        if (mutableExchange.value.busy) mutableExchange.value = AuthExchangeStatus(AuthProbeStage.CANCELLED, "The network or attempt stopped")
         verifiedEndpoint = null
         disarm()
         val callback = apCallback; apCallback = null; apNetwork = null

@@ -44,9 +44,9 @@ object ExperimentalAuthExchange {
                 val response = ExperimentalAuthWire.responseFrame(reply!!, sequence)
                 val outcome = when (val code = response.result ?: 0) { in 0..4 -> code.toString(); else -> "OTHER" }
                 val version = if (response.version == 1793) "EXPECTED" else "OTHER_OR_MISSING"
-                val modes = response.workModes?.let { "0x" + Integer.toHexString(it) } ?: "AUSENTE"
+                val modes = response.workModes?.let { "0x" + Integer.toHexString(it) } ?: "ABSENT"
                 val check = attempt.verify(response)
-                val summary = "RESPONSE_${check.name}; resultado=$outcome; versión=$version; workModes=$modes"
+                val summary = "RESPONSE_${check.name}; result=$outcome; version=$version; workModes=$modes"
                 if (check != PeerCheck.VERIFIED_PROOF_AND_SIGNATURE) return summary
                 val local = socket.localAddress as? Inet4Address ?: return "$summary; CONFIRM_NOT_SENT_NO_IPV4"
                 // Samsung starts its phone-side CONTROL/RTSP listeners right after confirmation; ours listen first.
@@ -56,7 +56,7 @@ object ExperimentalAuthExchange {
                 finally { cipher.fill(0) }
                 socket.getOutputStream().write(confirm!!)
                 socket.getOutputStream().flush()
-                return "$summary; CONFIRM_SENT; tras confirmación=${observeAfterConfirm(socket, input)}"
+                return "$summary; CONFIRM_SENT; after confirmation=${observeAfterConfirm(socket, input)}"
             }
         } catch (_: SocketTimeoutException) { return "TIMEOUT" }
         catch (_: EOFException) { return "TRUNCATED_OR_CLOSED" }
@@ -75,9 +75,9 @@ object ExperimentalAuthExchange {
         val header = ByteArray(20)
         input.readFully(header)
         val parsed = UCarFrameReader.header(header, 20 + ExperimentalAuthWire.MAX_BODY)
-        "FRAME categoría=${parsed.category} método=${parsed.method} tipo=${parsed.messageType} origen=${parsed.source}"
-    } catch (_: SocketTimeoutException) { "SIN_DATOS_1500MS" }
-    catch (_: EOFException) { "CERRADO_POR_RECEPTOR" }
+        "FRAME category=${parsed.category} method=${parsed.method} type=${parsed.messageType} source=${parsed.source}"
+    } catch (_: SocketTimeoutException) { "NO_DATA_1500MS" }
+    catch (_: EOFException) { "CLOSED_BY_RECEIVER" }
     catch (_: IOException) { "IO_FAILURE" }
-    catch (_: IllegalArgumentException) { "TRAMA_NO_RECONOCIDA" }
+    catch (_: IllegalArgumentException) { "UNRECOGNIZED_FRAME" }
 }

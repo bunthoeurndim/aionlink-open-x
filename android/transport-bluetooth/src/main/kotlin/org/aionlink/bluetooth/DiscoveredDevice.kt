@@ -12,7 +12,7 @@ internal fun mergeObservation(current: List<DiscoveredDevice>, incoming: Discove
     if (index < 0) return current + incoming
     val previous = current[index]
     val merged = incoming.copy(
-        name = if (incoming.name == "Sin nombre") previous.name else incoming.name,
+        name = if (incoming.name == "No name") previous.name else incoming.name,
         rssi = incoming.rssi ?: previous.rssi,
         connectable = incoming.connectable ?: previous.connectable,
         observedServiceCount = maxOf(previous.observedServiceCount, incoming.observedServiceCount),

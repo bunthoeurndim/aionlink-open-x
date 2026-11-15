@@ -82,7 +82,7 @@ class StreamingSavingsTest {
             onMain { saved.onStreamStopped() }
             assertEquals(level, Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS))
             assertEquals(mode, Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE))
-            assertTrue(events.any { it.startsWith("Batería de la sesión") })
+            assertTrue(events.any { it.startsWith("Session battery") })
             onMain { saved.onStreamStarted { 0 } }
             // A new instance stands in for the process restarted after dying mid-stream.
             PhoneSavings(context) { events += it }.restorePending()

@@ -101,7 +101,7 @@ class WfdSourceTest {
             val body = "wfd_idr_request\r\nwfd_secret: valor\r\n"
             send(sink, "SET_PARAMETER rtsp://x RTSP/1.0\r\nCSeq: 9\r\nContent-Length: ${body.length}\r\n\r\n$body")
             assertEquals(200, source.read(input)!!.status)
-            assertEquals("RTSP del receptor: SET_PARAMETER; parámetros=[wfd_idr_request, wfd_secret]", logs.poll(3, TimeUnit.SECONDS))
+            assertEquals("Receiver RTSP: SET_PARAMETER; parameters=[wfd_idr_request, wfd_secret]", logs.poll(3, TimeUnit.SECONDS))
         }
         source.close()
     }

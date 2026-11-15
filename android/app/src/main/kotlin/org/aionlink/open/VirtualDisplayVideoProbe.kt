@@ -77,7 +77,7 @@ class VirtualDisplayVideoProbe(
             } ?: "?"
             val temperature = battery?.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
                 ?.takeIf { it != Int.MIN_VALUE }?.let { "%.1f°C".format(it / 10f) } ?: "?"
-            report("Pantalla virtual propia ${width}x$height: intervalo ms=$interval; dibujados=${nowDrawn - lastDrawn}; H264=${nowEncoded - lastEncoded}; TS/RTP cuadros=${nowMuxed - lastMuxed}; paquetes=${nowPackets - lastPackets}; descartados=${rejected.get()}; paquetes inválidos=${malformedPackets.get()}; último H264 hace ms=$age; estado al final: pantalla principal=$physicalState; interactivo=$interactive; bloqueado=$locked; batería=$level; temperatura=$temperature; servicio en primer plano=${VirtualProbeService.running.value}; no es DeX")
+            report("Own virtual display ${width}x$height: interval ms=$interval; drawn=${nowDrawn - lastDrawn}; H264=${nowEncoded - lastEncoded}; TS/RTP frames=${nowMuxed - lastMuxed}; packets=${nowPackets - lastPackets}; dropped=${rejected.get()}; invalid packets=${malformedPackets.get()}; last H264 $age ms ago; final state: main screen=$physicalState; interactive=$interactive; locked=$locked; battery=$level; temperature=$temperature; foreground service=${VirtualProbeService.running.value}; not DeX")
             lastDrawn = nowDrawn; lastEncoded = nowEncoded
             lastMuxed = nowMuxed; lastPackets = nowPackets
             lastReportElapsed = now
@@ -138,7 +138,7 @@ class VirtualDisplayVideoProbe(
                         }
                     }
                 } catch (error: Exception) {
-                    if (running) handler.post { if (running) report("Pantalla virtual propia: error H264 ${error.javaClass.simpleName}") }
+                    if (running) handler.post { if (running) report("Own virtual display: H264 error ${error.javaClass.simpleName}") }
                 }
             }, "AionLink-virtual-h264").apply { isDaemon = true; start() }
             val virtual = context.getSystemService(DisplayManager::class.java).createVirtualDisplay(

@@ -53,7 +53,7 @@ class SurfaceRelay(private val output: Surface, private val width: Int, private 
             try { setUp() } catch (error: Throwable) { failure = error } finally { ready.countDown() }
         }
         ready.await()
-        failure?.let { close(); throw IllegalStateException("No se pudo preparar el relé GL", it) }
+        failure?.let { close(); throw IllegalStateException("Could not prepare the GL relay", it) }
     }
 
     private fun setUp() {

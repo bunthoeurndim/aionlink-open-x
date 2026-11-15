@@ -29,12 +29,12 @@ class HeadunitSurfaceBridge(
             if (message.data.getBoolean("attached")) {
                 val audioState = when {
                     audio == null -> ""
-                    message.data.getBoolean("audio") -> "; audio por el puente aceptado"
-                    else -> "; esta versión de OpenHeadunit Lite no admite audio por el puente (sonará en el teléfono)"
+                    message.data.getBoolean("audio") -> "; bridge audio accepted"
+                    else -> "; this version of OpenHeadunit Lite does not support bridge audio (it will play on the phone)"
                 }
-                report("Superficie aceptada$audioState; solicitando self mode. Vídeo y pantalla apagada sin verificar")
+                report("Surface accepted$audioState; requesting self mode. Video and screen-off unverified")
                 OpenHeadunit.requestSelfModeWithoutUi(context)
-            } else report("OpenHeadunit Lite rechazó la superficie")
+            } else report("OpenHeadunit Lite rejected the surface")
             true
         } else false
     })
@@ -50,13 +50,13 @@ class HeadunitSurfaceBridge(
                         audio?.let { putParcelable("audio", it.writeEnd) }
                     }
                 })
-            } catch (error: RemoteException) { report("Falló el envío de superficie: ${error.javaClass.simpleName}") }
+            } catch (error: RemoteException) { report("Surface delivery failed: ${error.javaClass.simpleName}") }
             // The receiver holds its own duplicate now; ours must close so the pipe ends when the receiver stops.
             audio?.releaseWriteEnd()
         }
-        override fun onServiceDisconnected(name: ComponentName) { remote = null; report("Puente de superficie desconectado") }
-        override fun onBindingDied(name: ComponentName) { remote = null; report("El servicio de superficie terminó") }
-        override fun onNullBinding(name: ComponentName) { report("OpenHeadunit Lite no ofrece el puente de superficie") }
+        override fun onServiceDisconnected(name: ComponentName) { remote = null; report("Surface bridge disconnected") }
+        override fun onBindingDied(name: ComponentName) { remote = null; report("Surface service ended") }
+        override fun onNullBinding(name: ComponentName) { report("OpenHeadunit Lite does not offer the surface bridge") }
     }
 
     fun start() {
@@ -64,9 +64,9 @@ class HeadunitSurfaceBridge(
             "com.andrerinas.openheadunit.aap.AionLinkSurfaceService"))
         try {
             bound = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-            if (!bound) report("No está disponible el servicio de superficie de OpenHeadunit Lite")
+            if (!bound) report("OpenHeadunit Lite surface service is unavailable")
         } catch (error: SecurityException) {
-            report("El puente requiere versiones de ambas apps con la misma firma")
+            report("The bridge requires versions of both apps with the same signature")
         }
     }
 

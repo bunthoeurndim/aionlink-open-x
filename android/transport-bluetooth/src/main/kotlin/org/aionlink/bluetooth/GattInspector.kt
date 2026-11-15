@@ -36,17 +36,17 @@ class GattInspector(context: Context) {
                 handler.post {
                     if (!current(ticket, gatt)) return@post
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        finish(GattInspection(GattStage.ERROR, peerId, statusCode = status, error = "Fallo de enlace GATT ($status)"))
+                        finish(GattInspection(GattStage.ERROR, peerId, statusCode = status, error = "GATT link failure ($status)"))
                     } else if (newState == BluetoothProfile.STATE_CONNECTED) {
                         mutableState.value = GattInspection(GattStage.LINK_CONNECTED, peerId)
                         try {
                             mutableState.value = GattInspection(GattStage.DISCOVERING_SERVICES, peerId)
-                            if (!gatt.discoverServices()) finish(GattInspection(GattStage.ERROR, peerId, error = "No se pudo iniciar el descubrimiento GATT"))
+                            if (!gatt.discoverServices()) finish(GattInspection(GattStage.ERROR, peerId, error = "Could not start GATT discovery"))
                         } catch (_: SecurityException) {
-                            finish(GattInspection(GattStage.ERROR, peerId, error = "Permiso Bluetooth revocado"))
+                            finish(GattInspection(GattStage.ERROR, peerId, error = "Bluetooth permission revoked"))
                         }
                     } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                        finish(GattInspection(GattStage.DISCONNECTED, peerId, error = "El dispositivo cerró el enlace antes de obtener servicios"))
+                        finish(GattInspection(GattStage.DISCONNECTED, peerId, error = "The device closed the link before services were obtained"))
                     }
                 }
             }
@@ -54,7 +54,7 @@ class GattInspector(context: Context) {
                 handler.post {
                     if (!current(ticket, gatt)) return@post
                     if (status != BluetoothGatt.GATT_SUCCESS) {
-                        finish(GattInspection(GattStage.ERROR, peerId, statusCode = status, error = "Error al descubrir servicios ($status)"))
+                        finish(GattInspection(GattStage.ERROR, peerId, statusCode = status, error = "Error discovering services ($status)"))
                         return@post
                     }
                     try {
@@ -63,23 +63,23 @@ class GattInspector(context: Context) {
                         val known = union?.characteristics?.map { it.uuid.toString() to it.properties } ?: emptyList()
                         finish(GattEvidence.summarize(peerId, services.map { it.uuid.toString() }, known))
                     } catch (_: SecurityException) {
-                        finish(GattInspection(GattStage.ERROR, peerId, error = "Permiso Bluetooth revocado"))
+                        finish(GattInspection(GattStage.ERROR, peerId, error = "Bluetooth permission revoked"))
                     }
                 }
             }
         }
         deadline = Runnable {
-            if (ticket == generation) finish(GattInspection(GattStage.TIMEOUT, peerId, error = "Sin respuesta GATT en 15 segundos"))
+            if (ticket == generation) finish(GattInspection(GattStage.TIMEOUT, peerId, error = "No GATT response in 15 seconds"))
         }.also { handler.postDelayed(it, 15000) }
         try {
             active = device.connectGatt(context, false, callback, BluetoothDevice.TRANSPORT_LE)
-            if (active == null) finish(GattInspection(GattStage.ERROR, peerId, error = "Android no creó el cliente GATT"))
+            if (active == null) finish(GattInspection(GattStage.ERROR, peerId, error = "Android did not create the GATT client"))
         } catch (_: SecurityException) {
-            finish(GattInspection(GattStage.ERROR, peerId, error = "Permiso de conexión Bluetooth denegado"))
+            finish(GattInspection(GattStage.ERROR, peerId, error = "Bluetooth connection permission denied"))
         } catch (_: IllegalArgumentException) {
-            finish(GattInspection(GattStage.ERROR, peerId, error = "Dispositivo BLE no válido"))
+            finish(GattInspection(GattStage.ERROR, peerId, error = "Invalid BLE device"))
         } catch (_: IllegalStateException) {
-            finish(GattInspection(GattStage.ERROR, peerId, error = "Bluetooth no disponible"))
+            finish(GattInspection(GattStage.ERROR, peerId, error = "Bluetooth unavailable"))
         }
     }
 
@@ -104,7 +104,7 @@ class GattInspector(context: Context) {
         completion = null
         generation++
         cleanup()
-        if (running) mutableState.value = GattInspection(GattStage.DISCONNECTED, peer, error = "Inspección cancelada")
+        if (running) mutableState.value = GattInspection(GattStage.DISCONNECTED, peer, error = "Inspection cancelled")
     }
 
     private fun cleanup() {

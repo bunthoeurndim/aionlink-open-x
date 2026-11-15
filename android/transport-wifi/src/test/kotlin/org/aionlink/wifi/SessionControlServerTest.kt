@@ -53,7 +53,7 @@ class SessionControlServerTest {
         val carFrames = java.util.concurrent.LinkedBlockingQueue<CarFrame>()
         val configs = java.util.concurrent.LinkedBlockingQueue<String>()
         SessionControlServer(InetAddress.getLoopbackAddress(), key, port = 0, onFrame = { carFrames += it }) {
-            if (it.carConfig != "sin respuesta") configs += it.carConfig
+            if (it.carConfig != "no response") configs += it.carConfig
         }.use { server ->
             server.start()
             Socket(InetAddress.getLoopbackAddress(), server.boundPort).use { car ->
@@ -73,7 +73,7 @@ class SessionControlServerTest {
                 car.getOutputStream().write(UCarFrameWriter.frame(UCarFrameWriter.flags(0, 1, UCarFrameWriter.TYPE_RES), 1,
                     SessionControlServer.METHOD_GET_CONFIG_RESPONSE, ExperimentalAuthCrypto.sessionSeal(testKey, response), request.sequence, 0))
                 val summary = configs.poll(3, java.util.concurrent.TimeUnit.SECONDS)
-                assertEquals("vídeoAncho=1920; sdk=v1", summary)
+                assertEquals("videoWidth=1920; sdk=v1", summary)
                 car.getOutputStream().write(UCarFrameWriter.frame(UCarFrameWriter.flags(0, 1, UCarFrameWriter.TYPE_SEND), 1,
                     SessionControlServer.METHOD_DISCONNECT, ByteArray(0), 90, 0))
                 var last: CarFrame? = null
@@ -82,7 +82,7 @@ class SessionControlServerTest {
             }
         }
         assertEquals("disconnect", SessionControlServer.methodName(23))
-        assertEquals("desconocido", SessionControlServer.methodName(99))
+        assertEquals("unknown", SessionControlServer.methodName(99))
         assertEquals("ack", SessionControlServer.methodName(0))
     }
 
@@ -114,7 +114,7 @@ class SessionControlServerTest {
                 val state = until(SessionControlServer.METHOD_APP_STATE_CHANGED)
                 // parseAppStateChangedMessage in the car rejects any other type.
                 assertEquals(UCarFrameWriter.TYPE_SEND_SYNC, state.first.messageType); assertNotEquals(42L, state.first.sequence)
-                assertEquals("app_state_changed; tipo=3; campos=[2=1]", sent.poll(3, java.util.concurrent.TimeUnit.SECONDS))
+                assertEquals("app_state_changed; type=3; fields=[2=1]", sent.poll(3, java.util.concurrent.TimeUnit.SECONDS))
                 assertArrayEquals(byteArrayOf(16, 1), state.second) // isNeedShow; id, display and STARTED are 0.
                 carSend(UCarFrameWriter.TYPE_REQ, SessionControlServer.METHOD_GET_APP_DETAIL_REQUEST, ByteArray(0), 41)
                 val detail = until(SessionControlServer.METHOD_GET_APP_DETAIL_RESPONSE)
@@ -183,8 +183,8 @@ class SessionControlServerTest {
     }
 
     @Test fun truncatedConfigIsMarkedAndNeverThrows() {
-        assertEquals("vídeoAlto=960; truncado=sí", CarConfigSummary.of(UCarFrameWriter.varintField(6, 960) + byteArrayOf(0x12, 0x7F)))
-        assertEquals("respuesta sin campos conocidos", CarConfigSummary.of(byteArrayOf()))
+        assertEquals("videoHeight=960; truncated=yes", CarConfigSummary.of(UCarFrameWriter.varintField(6, 960) + byteArrayOf(0x12, 0x7F)))
+        assertEquals("response without known fields", CarConfigSummary.of(byteArrayOf()))
     }
 
     @Test fun passiveChannelOnlyAcknowledges() {

@@ -8,7 +8,7 @@ internal class VirtualProbeJournal(context: Context, name: String = "virtual-pro
     private val preferences = context.getSharedPreferences(name, Context.MODE_PRIVATE)
 
     fun start() {
-        preferences.edit().putBoolean("active", true).putString("records", stamp("Inicio de prueba local")).apply()
+        preferences.edit().putBoolean("active", true).putString("records", stamp("Local test start")).apply()
     }
 
     fun sample(message: String) {
@@ -25,9 +25,9 @@ internal class VirtualProbeJournal(context: Context, name: String = "virtual-pro
 
     fun snapshot(): String {
         val records = preferences.getString("records", "").orEmpty()
-        if (records.isEmpty()) return "Sin prueba virtual guardada"
-        val state = if (preferences.getBoolean("active", false)) "EN_CURSO_O_INTERRUMPIDA" else "FINALIZADA"
-        return "Última prueba virtual: $state; solo datos sintéticos\n$records"
+        if (records.isEmpty()) return "No saved virtual test"
+        val state = if (preferences.getBoolean("active", false)) "IN_PROGRESS_OR_INTERRUPTED" else "FINISHED"
+        return "Last virtual test: $state; synthetic data only\n$records"
     }
 
     private fun stamp(message: String) = "${Instant.now()} $message"

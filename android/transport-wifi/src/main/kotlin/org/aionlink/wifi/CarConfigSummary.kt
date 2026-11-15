@@ -5,8 +5,8 @@ package org.aionlink.wifi
  * address (field 1) and custom field (16) are skipped on purpose; only display, codec and SDK metadata leave here.
  */
 object CarConfigSummary {
-    private val numeric = mapOf(2 to "pantallaAncho", 3 to "pantallaAlto", 4 to "dpi", 5 to "vídeoAncho", 6 to "vídeoAlto",
-        7 to "fps", 13 to "mic", 14 to "bajaLatencia", 18 to "workModes", 23 to "hevc")
+    private val numeric = mapOf(2 to "screenWidth", 3 to "screenHeight", 4 to "dpi", 5 to "videoWidth", 6 to "videoHeight",
+        7 to "fps", 13 to "mic", 14 to "lowLatency", 18 to "workModes", 23 to "hevc")
     private const val SDK_VERSION = 17
 
     fun of(message: ByteArray): String {
@@ -19,8 +19,8 @@ object CarConfigSummary {
                         values["sdk"] = String(message, offset, size, Charsets.US_ASCII).filter { it in ' '..'~' }.take(40)
                     }
                 })
-        } catch (_: IllegalArgumentException) { values["truncado"] = "sí" }
-        return if (values.isEmpty()) "respuesta sin campos conocidos" else values.entries.joinToString("; ") { "${it.key}=${it.value}" }
+        } catch (_: IllegalArgumentException) { values["truncated"] = "yes" }
+        return if (values.isEmpty()) "response without known fields" else values.entries.joinToString("; ") { "${it.key}=${it.value}" }
     }
 }
 

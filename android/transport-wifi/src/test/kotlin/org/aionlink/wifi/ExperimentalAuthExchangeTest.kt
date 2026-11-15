@@ -108,9 +108,9 @@ class ExperimentalAuthExchangeTest {
                 val serverResult = worker.submit { server.accept().use { peer(it, wrong) } }
                 val pin = "123456".toByteArray(); val id = "test-only".toByteArray()
                 val result = ExperimentalAuthExchange.run(Socket(), InetAddress.getLoopbackAddress(), server.localPort, pin, id, "test-phone") { }
-                assertEquals(if (wrong) "RESPONSE_BAD_PROOF; resultado=0; versión=EXPECTED; workModes=AUSENTE"
-                    else "RESPONSE_VERIFIED_PROOF_AND_SIGNATURE; resultado=0; versión=EXPECTED; workModes=AUSENTE; " +
-                        "CONFIRM_SENT; tras confirmación=CERRADO_POR_RECEPTOR", result)
+                assertEquals(if (wrong) "RESPONSE_BAD_PROOF; result=0; version=EXPECTED; workModes=ABSENT"
+                    else "RESPONSE_VERIFIED_PROOF_AND_SIGNATURE; result=0; version=EXPECTED; workModes=ABSENT; " +
+                        "CONFIRM_SENT; after confirmation=CLOSED_BY_RECEIVER", result)
                 assertTrue(pin.all { it == 0.toByte() }); assertTrue(id.all { it == 0.toByte() })
                 serverResult.get(4, TimeUnit.SECONDS)
             } finally { worker.shutdownNow() }

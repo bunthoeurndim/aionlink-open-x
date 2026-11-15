@@ -85,9 +85,9 @@ class CarLauncherActivity : ComponentActivity() {
         val available = apps
         Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).padding(horizontal = 32.dp, vertical = 16.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (editing) "Elige tus apps" else "AionLink", style = MaterialTheme.typography.headlineMedium,
+                Text(if (editing) "Choose your apps" else "AionLink", style = MaterialTheme.typography.headlineMedium,
                     color = MaterialTheme.colorScheme.onBackground, modifier = Modifier.weight(1f))
-                Button(onClick = { editing = !editing }) { Text(if (editing) "Listo" else "Editar") }
+                Button(onClick = { editing = !editing }) { Text(if (editing) "Done" else "Edit") }
             }
             Spacer(Modifier.height(12.dp))
             val shown = when {
@@ -96,8 +96,8 @@ class CarLauncherActivity : ComponentActivity() {
                 else -> chosen.mapNotNull { key -> available.firstOrNull { it.key == key } }
             }
             when {
-                available == null -> Message("Cargando apps…")
-                shown.isEmpty() -> Message("Pulsa Editar y elige tus apps")
+                available == null -> Message("Loading apps…")
+                shown.isEmpty() -> Message("Tap Edit and choose your apps")
                 else -> LazyVerticalGrid(GridCells.Adaptive(150.dp), Modifier.fillMaxSize()) {
                     items(shown, key = { it.key }) { app ->
                         val selected = app.key in chosen

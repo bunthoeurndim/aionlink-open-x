@@ -87,16 +87,16 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         val logged = java.util.concurrent.ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>()
         fun logFrame(label: String, frame: CarFrame) {
             if (logged.getOrPut(label) { java.util.concurrent.atomic.AtomicInteger() }.incrementAndGet() > MAX_LOGGED_FRAMES) return
-            event("Canal $label recibió: categoría=${frame.category}; método=${frame.method} " +
-                "(${SessionControlServer.methodName(frame.method)}); tipo=${frame.messageType}")
+            event("Channel $label received: category=${frame.category}; method=${frame.method} " +
+                "(${SessionControlServer.methodName(frame.method)}); type=${frame.messageType}")
         }
         fun passive(port: Int, label: String, assign: (SessionControlServer) -> Unit) = try {
             SessionControlServer(local, sessionKey.copyOf(), port, active = false, onFrame = { logFrame(label, it) }) { status ->
                 if (label == "MEDIA") mediaStage = status.stage else sensorStage = status.stage
                 val text = "MEDIA $mediaStage • SENSOR $sensorStage"
-                if (mutableAux.value != text) { mutableAux.value = text; event("Canal $label: ${status.stage}") }
+                if (mutableAux.value != text) { mutableAux.value = text; event("Channel $label: ${status.stage}") }
             }.also { it.start(); assign(it) }
-        } catch (_: java.io.IOException) { event("Canal $label: BIND_FAILED") }
+        } catch (_: java.io.IOException) { event("Channel $label: BIND_FAILED") }
         passive(SessionControlServer.MEDIA_PORT, "MEDIA") { mediaServer = it }
         passive(SessionControlServer.SENSOR_PORT, "SENSOR") { sensorServer = it }
         try {
@@ -108,15 +108,15 @@ class ProjectionSession(private val context: Context, private val savings: Phone
                     SessionControlServer.METHOD_DISCONNECT -> main.post { stop("COCHE_PIDIO_DESCONEXION") }
                     SessionControlServer.METHOD_CAR_TO_FOREGROUND -> { encoder?.requestKeyframe(); carDisplay?.requestKeyframe(); main.post { openLauncherOnce() } }
                 }
-            }, onSent = { event("Canal CONTROL envió: $it") }, onStatus = { status ->
-                if (mutableControl.value.stage != status.stage) event("Canal CONTROL: ${status.stage}")
-                if (mutableControl.value.carConfig != status.carConfig) event("Configuración del coche: ${status.carConfig}")
+            }, onSent = { event("CONTROL channel sent: $it") }, onStatus = { status ->
+                if (mutableControl.value.stage != status.stage) event("CONTROL channel: ${status.stage}")
+                if (mutableControl.value.carConfig != status.carConfig) event("Car configuration: ${status.carConfig}")
                 mutableControl.value = status
             }).also { it.start(); controlServer = it }
         } catch (_: java.io.IOException) { sessionKey.fill(0); mutableControl.value = ControlChannelStatus("BIND_FAILED") }
         try {
             UibcServer(local, onEvent = ::onUibc, onStatus = { stage ->
-                if (mutableTouch.value.stage != stage) event("Táctil UIBC: $stage")
+                if (mutableTouch.value.stage != stage) event("UIBC touch: $stage")
                 mutableTouch.value = mutableTouch.value.copy(stage = stage)
             }, decrypt = { data -> uibcKey?.let { key -> try { ExperimentalAuthCrypto.sessionOpen(key, data) } catch (_: Exception) { null } } })
                 .also { it.start(); uibcServer = it }
@@ -135,10 +135,10 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         if (carDisplay != null || launcherOpened || !savings.launcher.value) return
         launcherOpened = true
         val service = TouchInjectionService.instance
-        if (service == null) { event("Lanzador no abierto: el servicio de accesibilidad no está activo"); return }
+        if (service == null) { event("Launcher not opened: the accessibility service is not active"); return }
         service.showCarButtons()
         service.openCarLauncher()
-        event("Lanzador abierto en el teléfono")
+        event("Launcher opened on the phone")
     }
 
     private fun onUibc(input: UibcEvent) {
@@ -167,7 +167,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
             val service = TouchInjectionService.instance
             if (service == null) {
                 mutableTouch.value = mutableTouch.value.copy(stage = "SIN_ACCESIBILIDAD")
-                if (!touchWarned) { touchWarned = true; event("Táctil: el coche envía toques, pero el servicio de accesibilidad no está activo") }
+                if (!touchWarned) { touchWarned = true; event("Touch: the car sends touches, but the accessibility service is not active") }
                 return@post
             }
             when (input) {
@@ -191,8 +191,8 @@ class ProjectionSession(private val context: Context, private val savings: Phone
 
     /** Manual fallback when the automatic start was blocked (for example, AionLink was not on screen). */
     fun showHeadunitOnCarDisplay(activity: Context): String {
-        return if (headunitBridge != null) "El puente de superficie ya fue solicitado; consulta los eventos"
-        else "Selecciona OpenHeadunit Lite antes de conectar y espera al inicio del vídeo"
+        return if (headunitBridge != null) "The surface bridge was already requested; check the events"
+        else "Select OpenHeadunit Lite before connecting and wait for video to start"
     }
 
     private fun play(play: WfdPlay) {
@@ -201,8 +201,8 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         // Car mode only needs a projection for optional audio capture; mirroring needs it for the image.
         val granted = ProjectionService.takeProjection()
         if (granted == null && !carMode) {
-            mutableStream.value = StreamStatus("SIN_CAPTURA", "Pulsa 'Preparar captura de pantalla' antes de conectar")
-            event("Vídeo no iniciado: captura sin preparar para esta conexión")
+            mutableStream.value = StreamStatus("SIN_CAPTURA", "Tap 'Prepare screen capture' before connecting")
+            event("Video not started: capture not prepared for this connection")
             return
         }
         try {
@@ -237,11 +237,11 @@ class ProjectionSession(private val context: Context, private val savings: Phone
             slowWrites = 0
             val requested = WfdFormats.encodeTarget(play.mode, play.carDisplay, quality.high.value)
             val target = if (requested.source == "CEA" || ScreenEncoder.supports(requested.width, requested.height, requested.fps)) requested
-                else WfdFormats.encodeTarget(play.mode, null, false).copy(source = "CEA_POR_CODIFICADOR")
+                else WfdFormats.encodeTarget(play.mode, null, false).copy(source = "CEA_BY_ENCODER")
             // Car mode content is mostly static interface; it does not need the mirror's bitrate (see relayBitrate).
             val carBitrate = WfdFormats.relayBitrate(target.width, target.height, target.fps)
-            val label = "${target.width}x${target.height}p${target.fps}; ${(if (carMode) carBitrate else target.bitrate) / 1000} kbps; origen=${target.source}; " +
-                if (externalHeadunit) "fuente=OPEN_HEADUNIT_EXPERIMENTAL" else if (carMode) "fuente=MODO_COCHE" else "fuente=ESPEJO"
+            val label = "${target.width}x${target.height}p${target.fps}; ${(if (carMode) carBitrate else target.bitrate) / 1000} kbps; source=${target.source}; " +
+                if (externalHeadunit) "source=OPEN_HEADUNIT_EXPERIMENTAL" else if (carMode) "source=CAR_MODE" else "source=MIRROR"
             // Touch coordinates arrive in the frame the car displays, which is the encoded frame.
             videoWidth = target.width; videoHeight = target.height
             fun report() {
@@ -276,11 +276,11 @@ class ProjectionSession(private val context: Context, private val savings: Phone
             mutableStream.value = StreamStatus("STARTING", label, audio = audioState)
             if (withAudio && !audioFromBridge) try {
                 AudioCapture(granted!!, { frame, ptsUs -> streamer.onAudioFrame(frame, ptsUs) }, { error ->
-                    mutableStream.value = mutableStream.value.copy(audio = error); event("Audio detenido: $error")
+                    mutableStream.value = mutableStream.value.copy(audio = error); event("Audio stopped: $error")
                 }, onLevel = { level -> logAudioLevel(level) }).also { audioCapture = it; it.start() }
             } catch (error: Exception) { mutableStream.value = mutableStream.value.copy(audio = "START_${error.javaClass.simpleName}") }
-            event("Vídeo iniciado hacia el receptor: $label; M4=${play.mode.width}x${play.mode.height}p${play.mode.fps}; " +
-                "pantalla del coche=${play.carDisplay?.let { "${it.width}x${it.height}@${it.fps}" } ?: "no informada"}; audio=$audioState; táctil=${play.uibc}")
+            event("Video started to the receiver: $label; M4=${play.mode.width}x${play.mode.height}p${play.mode.fps}; " +
+                "car screen=${play.carDisplay?.let { "${it.width}x${it.height}@${it.fps}" } ?: "not reported"}; audio=$audioState; touch=${play.uibc}")
             if (!carMode) savings.onStreamStarted { streamer.accessUnits }
         } catch (error: Exception) { stopStream("START_${error.javaClass.simpleName}") }
     }
@@ -303,7 +303,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
 
     private fun startBridgeAudio(streamer: TsRtpStreamer): BridgeAudio? = try {
         BridgeAudio({ frame, ptsUs -> streamer.onAudioFrame(frame, ptsUs) }, { error ->
-            mutableStream.value = mutableStream.value.copy(audio = error); event("Audio del puente detenido: $error")
+            mutableStream.value = mutableStream.value.copy(audio = error); event("Bridge audio stopped: $error")
         }, onLevel = { level -> logAudioLevel(level) }).also { bridgeAudio = it; it.start() }
     } catch (error: Exception) {
         mutableStream.value = mutableStream.value.copy(audio = "PUENTE_${error.javaClass.simpleName}"); null
@@ -319,7 +319,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         silentReports = if (silent) silentReports + 1 else 0
         if (audioLevelsLogged < 6 || changed) {
             audioLevelsLogged++
-            event(if (silent) "Audio capturado: silencio (nada capturable sonando)" else "Audio capturado: pico=$level%")
+            event(if (silent) "Captured audio: silence (nothing capturable playing)" else "Captured audio: peak=$level%")
         }
     }
 
@@ -340,7 +340,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         datagrams?.close(); datagrams = null
         if (mutableStream.value.stage != "IDLE") {
             mutableStream.value = mutableStream.value.copy(stage = "STOPPED", detail = reason)
-            event("Vídeo detenido: $reason")
+            event("Video stopped: $reason")
         }
     }
 
@@ -352,6 +352,6 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         uibcServer?.close(); uibcServer = null
         source?.close(); source = null
         uibcKey?.fill(0); uibcKey = null
-        if (reason != null && mutableRtsp.value.stage != "IDLE") event("Sesión de proyección cerrada: $reason")
+        if (reason != null && mutableRtsp.value.stage != "IDLE") event("Projection session closed: $reason")
     }
 }

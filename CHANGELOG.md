@@ -1,142 +1,142 @@
-# Cambios
+# Changes
 
 ## 0.41.0-research — 2026-11-08
 
-- Con Open Headunit como fuente, el sonido de Android Auto llega a AionLink por el puente (pipe PCM) y se envía al coche en AAC; ya no suena en el teléfono ni requiere captura de audio.
-- La prueba local informa los KiB recibidos por el puente, las tramas AAC y el pico.
-- Requiere Open Headunit con `patches/open-headunit/bridge-audio.patch`. Verificado solo en el teléfono, sin el AION.
+- With Open Headunit as the source, Android Auto sound reaches AionLink through the bridge (PCM pipe) and is sent to the car in AAC; it no longer plays on the phone and needs no audio capture.
+- The local test reports the KiB received through the bridge, the AAC frames, and the peak.
+- Requires Open Headunit with `patches/open-headunit/bridge-audio.patch`. Verified only on the phone, without the AION.
 
 ## 0.40.0-research — 2026-11-07
 
-- El audio capturado informa su nivel cada 5 s o si pasa a silencio, para saber si llega sonido de Open Headunit al coche.
-- Sin verificar con el AION; no instalada: falta la llave de firma compartida en este PC.
+- Captured audio reports its level every 5 s or when it goes silent, to tell whether Open Headunit sound reaches the car.
+- Not verified with the AION; not installed: the shared signing key is missing on this PC.
 
 ## 0.35.0-research — 2026-11-06
 
-- Modo coche: panel propio de AionLink (reloj, música con controles, navegación de Maps/Waze) enviado al coche sin captura de pantalla, para usar con el teléfono apagado.
-- Táctil del coche directo al panel; servicio en primer plano durante la sesión.
-- Botón para abrir Android Auto con Open Headunit (self mode) y llevarlo al coche en modo espejo.
+- Car mode: AionLink's own panel (clock, music with controls, Maps/Waze navigation) sent to the car without screen capture, for use with the phone off.
+- Car touch straight to the panel; foreground service during the session.
+- Button to open Android Auto with Open Headunit (self mode) and bring it to the car in mirror mode.
 
 ## 0.34.0-research — 2026-11-06
 
-- Imagen más nítida: codifica a la resolución que pide el coche (1920x960) con bitrate proporcional (11 Mbps).
-- Botón «Calidad de imagen» para volver al modo compatible 1280x720 si el coche lo necesita.
-- La sonda de pantalla apagada corre en un servicio en primer plano, a 1920x960, con batería y temperatura.
-- Firma opcional con `android/keystore.properties` y corrección de una carrera al cerrar RTSP.
+- Sharper picture: encodes at the resolution the car requests (1920x960) with proportional bitrate (11 Mbps).
+- “Image quality” button to fall back to the compatible 1280x720 mode if the car needs it.
+- The screen-off probe runs in a foreground service, at 1920x960, with battery and temperature.
+- Optional signing with `android/keystore.properties` and a race fix when closing RTSP.
 
 ## 0.28.0-research — 2026-11-03
 
-- Lanzador propio con las apps que elige el propietario, abierto al pulsar AionLink en el coche; se puede desactivar para compartir pantalla sin más.
-- Botones de atrás e inicio sobre la pantalla compartida, para usarlos desde el táctil del coche.
-- Horizontal opcional durante la proyección, restaurado al terminar o tras un cierre inesperado.
-- Sigue siendo pantalla compartida: el teléfono debe estar encendido y desbloqueado. Sin verificar con el AION.
+- Own launcher with the apps the owner chooses, opened when AionLink is tapped in the car; can be turned off to share the screen only.
+- Back and home buttons over the shared screen, for use from the car touch.
+- Optional landscape during projection, restored when it ends or after an unexpected close.
+- Still screen sharing: the phone must be on and unlocked. Not verified with the AION.
 
 ## 0.27.0-research — 2026-11-03
 
-- El botón de accesibilidad avisa si el táctil está inactivo, y el registro indica si llegan toques sin servicio activo.
-- La sonda compara la vista en pantalla virtual con el dibujo directo, con el teléfono bloqueado.
-- 0.26 confirmó en el AION unos 30 cuadros/s y mejor transmisión, según informa el propietario; 0.27 sin verificar con el AION.
+- The accessibility button warns if touch is inactive, and the log shows whether touches arrive with no active service.
+- The probe compares the virtual-display view with direct drawing, with the phone locked.
+- 0.26 confirmed on the AION about 30 frames/s and better streaming, as the owner reports; 0.27 not verified with the AION.
 
 ## 0.26.0-research — 2026-11-03
 
-- El codificador se limita a los fps negociados y pide baja latencia, para evitar la cola de cuadros en el coche.
-- Brillo mínimo opcional durante la proyección, restaurado al terminar o tras un cierre inesperado.
-- El diagnóstico añade cuadros/s, escrituras lentas, batería por sesión y encendido o apagado de la pantalla.
-- Sonda local para saber si una pantalla propia sigue viva con el teléfono bloqueado.
-- 0.25 confirmó en el AION proyección y táctil, según informa el propietario; 0.26 sin verificar con el AION.
+- The encoder is limited to the negotiated fps and requests low latency, to avoid the frame queue in the car.
+- Optional minimum brightness during projection, restored when it ends or after an unexpected close.
+- Diagnostics add frames/s, slow writes, per-session battery, and screen on/off.
+- Local probe to tell whether an own display stays alive with the phone locked.
+- 0.25 confirmed on the AION projection and touch, as the owner reports; 0.26 not verified with the AION.
 
 ## 0.25.0-research — 2026-11-02
 
-- `AppStateChanged` se envía como `SEND_SYNC`, el único tipo que acepta el analizador del coche; antes iba como `SEND`.
-- El registro añade los ACK del coche y el `AppStateChanged` enviado con sus campos.
-- 0.24 confirmó en el AION el icono "AionLink" y los métodos 4 y 30 al pulsarlo, seguidos de cierre en unos 65 ms; 0.25 sin verificar con el AION.
+- `AppStateChanged` is sent as `SEND_SYNC`, the only type the car's parser accepts; it used to go as `SEND`.
+- The log adds the car's ACKs and the sent `AppStateChanged` with its fields.
+- 0.24 confirmed on the AION the "AionLink" icon and methods 4 and 30 when tapped, followed by a close in about 65 ms; 0.25 not verified with the AION.
 
 ## 0.24.0-research — 2026-11-02
 
-- Se retiran los avisos no solicitados de 0.23: el AION cerró la sesión 84 ms después de `AppStateChanged`.
-- Con AUTH automático, la conexión no empieza si la captura no está preparada, y cada permiso de captura sirve para una sola conexión.
-- 0.24 sin verificar con el AION.
+- Unsolicited notices from 0.23 removed: the AION closed the session 84 ms after `AppStateChanged`.
+- With automatic AUTH, the connection does not start if capture is not ready, and each capture permission is good for a single connection.
+- 0.24 not verified with the AION.
 
 ## 0.23.0-research — 2026-11-02
 
-- Tras leer el coche los detalles de la app, el teléfono envía una vez `AppStateChanged` (STARTED, mostrar) y `NotifyMirrorState` (BACK_TO_FOREGROUND).
-- La app usa el id 2; `AppStateChanged` deja la marca de tiempo en 0, porque el reproductor del SDK la compara con el tiempo del vídeo.
-- 0.22 confirmó en el AION el modo 4 y la lectura de la lista de apps, pero sin imagen; 0.23 sin verificar con el AION.
+- After the car reads the app details, the phone sends once `AppStateChanged` (STARTED, show) and `NotifyMirrorState` (BACK_TO_FOREGROUND).
+- The app uses id 2; `AppStateChanged` leaves the timestamp at 0, because the SDK player compares it with the video time.
+- 0.22 confirmed on the AION mode 4 and reading the app list, but no picture; 0.23 not verified with the AION.
 
 ## 0.22.0-research — 2026-11-02
 
-- AUTH declara también el modo 4 (`APP_FULLSCREEN_CAST`), el único que el AION informa, por el error "integrated desktop screen casting".
-- CONTROL responde a la lista de apps, sus detalles e `InvokeApp` con una única app propia que representa el espejo del teléfono.
-- 0.21 confirmó en el AION el texto del error y `workModes=4`; 0.22 sin verificar con el AION.
+- AUTH also declares mode 4 (`APP_FULLSCREEN_CAST`), the only one the AION reports, due to the "integrated desktop screen casting" error.
+- CONTROL answers the app list, its details, and `InvokeApp` with a single own app representing the phone mirror.
+- 0.21 confirmed on the AION the error text and `workModes=4`; 0.22 not verified with the AION.
 
 ## 0.21.0-research — 2026-11-02
 
-- Al recibir `disconnect` (método 23) del coche se detienen vídeo y canales; antes se ignoraba.
-- El método 4 (coche en primer plano) pide un fotograma clave.
-- Solicitud de configuración del coche (método 24), con exportación limitada y sin dirección Bluetooth.
-- El diagnóstico registra con hora los mensajes del coche y las peticiones RTSP, sin contenido, y los demás parámetros de M3.
-- 0.20 confirmó en el AION RTP sobre TCP y `PLAYING`, pero sin imagen; 0.21 sin verificar con el AION.
+- On receiving `disconnect` (method 23) from the car, video and channels stop; it used to be ignored.
+- Method 4 (car in foreground) requests a key frame.
+- Car configuration request (method 24), with limited export and no Bluetooth address.
+- Diagnostics log the car's messages and RTSP requests with timestamps, without content, plus the other M3 parameters.
+- 0.20 confirmed on the AION RTP over TCP and `PLAYING`, but no picture; 0.21 not verified with the AION.
 
 ## 0.20.0-research — 2026-11-02
 
-- RTSP deja de detenerse en M3 cuando el receptor elige `RTP/AVP/TCP;unicast`.
-- Vídeo y audio por TCP: el teléfono se conecta al `client_port` y enmarca con 16 bits de longitud.
-- `server_port` siempre como par `15550-15551`; `SETUP` interleaved responde 461.
-- El diagnóstico exporta `wfd_client_rtp_ports`; sin verificar con el AION.
+- RTSP no longer stalls at M3 when the receiver picks `RTP/AVP/TCP;unicast`.
+- Video and audio over TCP: the phone connects to the `client_port` and frames with a 16-bit length.
+- `server_port` always as the pair `15550-15551`; interleaved `SETUP` answers 461.
+- Diagnostics export `wfd_client_rtp_ports`; not verified with the AION.
 
 ## 0.19.0-research — 2026-10-30
 
-- Táctil del vehículo: servidor UIBC (4321), JSON observado y gestos mediante un servicio de accesibilidad.
-- Audio del teléfono capturado (AudioPlaybackCapture) y enviado como AAC dentro del flujo Wi-Fi Display.
-- Escuchas cifradas pasivas MEDIA (57229) y SENSOR (57239); M4 declara UIBC y prefiere AAC.
-- Sin LPCM, pellizco ni micrófono; sin verificar con el AION.
+- Vehicle touch: UIBC server (4321), observed JSON, and gestures via an accessibility service.
+- Phone audio captured (AudioPlaybackCapture) and sent as AAC inside the Wi-Fi Display stream.
+- Passive encrypted MEDIA (57229) and SENSOR (57239) listeners; M4 declares UIBC and prefers AAC.
+- No LPCM, pinch, or microphone; not verified with the AION.
 
 ## 0.18.0-research — 2026-10-30
 
-- Canal CONTROL del teléfono (57219) con cuerpos cifrados por la clave de sesión, heartbeat y ACK.
-- Fuente Wi-Fi Display propia: RTSP M1–M7, MPEG-TS/RTP y vídeo H.264 desde MediaProjection.
-- Los listeners se abren antes de AuthConfirm; botón para autorizar la captura de pantalla.
-- Sin audio, táctil (UIBC) ni SENSOR; sin verificar con el AION.
+- Phone CONTROL channel (57219) with bodies encrypted by the session key, heartbeat, and ACK.
+- Own Wi-Fi Display source: RTSP M1–M7, MPEG-TS/RTP, and H.264 video from MediaProjection.
+- Listeners open before AuthConfirm; button to authorize screen capture.
+- No audio, touch (UIBC), or SENSOR; not verified with the AION.
 
 ## 0.17.0-research — 2026-10-30
 
-- Solicitud AUTH con secuencia positiva y workModes 257 observados en Samsung.
-- Derivación HKDF-SHA256 de la clave de sesión y envío de AuthConfirm cifrado.
+- AUTH request with a positive sequence and workModes 257 observed on Samsung.
+- HKDF-SHA256 derivation of the session key and sending of the encrypted AuthConfirm.
 
 ## 0.4.0-research — 2026-10-22
 
-- Módulo Android USB/AOA con detección, permiso explícito, apertura y cierre del descriptor.
-- Registro del accesorio ICCOA/CarLink observado en Samsung y CarWith, sin permisos privilegiados.
-- Lector multiplexado original incremental con límites y seis pruebas sintéticas.
-- Inicio experimental opcional de canales RTSP/UIBC según evidencia estática, sin sesión simulada.
-- Distinción entre alimentación USB, ADB/carga, dispositivos host y accesorio AOA.
-- USB y Bluetooth disponibles por separado; sin imponer un rol Bluetooth todavía desconocido.
+- Android USB/AOA module with detection, explicit permission, and descriptor open/close.
+- Log of the ICCOA/CarLink accessory observed on Samsung and CarWith, without privileged permissions.
+- Original incremental multiplexed reader with limits and six synthetic tests.
+- Optional experimental start of RTSP/UIBC channels from static evidence, with no simulated session.
+- Distinction between USB power, ADB/charging, host devices, and the AOA accessory.
+- USB and Bluetooth available separately; no Bluetooth role imposed that is still unknown.
 
 ## 0.3.0-research — 2026-10-22
 
-- Conexión GATT real al BLE seleccionado por el propietario y descubrimiento de servicios.
-- Reconocimiento de UnionShare y metadatos de características conocidas, sin leer/escribir valores.
-- Timeout, cancelación, protección frente a callbacks obsoletos y cierre automático del enlace.
-- Acción explícita de conexión y resultado de inspección separados de la sesión ICCOA.
-- Prueba de pantalla inicial y botón Detener en S25; 23 pruebas automatizadas aprobadas.
-- Receptor objetivo aclarado por el propietario: ICCOA CarLink y Huawei Car; no CarbitLink.
+- Real GATT connection to the owner-selected BLE and service discovery.
+- Recognition of UnionShare and metadata of known characteristics, without reading/writing values.
+- Timeout, cancellation, protection against stale callbacks, and automatic link close.
+- Explicit connect action and inspection result kept separate from the ICCOA session.
+- Initial screen probe and Stop button on the S25; 23 automated tests passing.
+- Target receiver clarified by the owner: ICCOA CarLink and Huawei Car; not CarbitLink.
 
 ## 0.2.0-research — 2026-10-22
 
-- Lectura ADB de registros retenidos por UID y análisis de Samsung Auto 3.1.04.10 instalado.
-- Diagnóstico documentado de fallos OEM; comparación de rutas Samsung/Xiaomi/OPPO/CarLife.
-- Especificación estática de cabecera UCar y lector propio offline con CRC y límites.
-- Indicios BLE por UUID observados, sin declarar compatibilidad o sesión.
-- Exportación con transporte, señal, conectabilidad, UUID permitidos y timestamps.
-- Protección frente a callbacks BLE de búsquedas anteriores; botón coherente con búsqueda activa.
-- 6 pruebas Python y 14 JVM; APK compilada y actualizada por ADB en el S25.
+- ADB reading of logs retained by UID and analysis of installed Samsung Auto 3.1.04.10.
+- Documented OEM failure diagnosis; comparison of Samsung/Xiaomi/OPPO/CarLife routes.
+- Static UCar header specification and an own offline reader with CRC and limits.
+- BLE hints by observed UUID, without claiming compatibility or a session.
+- Export with transport, signal, connectability, allowlisted UUIDs, and timestamps.
+- Protection against BLE callbacks from earlier searches; button consistent with an active search.
+- 6 Python tests and 14 JVM tests; APK built and updated via ADB on the S25.
 
 ## 0.1.0-research — 2026-10-21
 
-- Inventario local SHA-256, firma pública, manifest, recursos, DEX y bibliotecas.
-- Automatización Apktool/JADX con registros y salidas separadas por hash.
-- Búsqueda con índices de rutas/líneas/términos y comparación de metadatos.
-- Inspección ELF mediante LLVM del NDK, sin cargar bibliotecas.
-- Base Android Kotlin modular, StateFlow, tests, Compose y descubrimiento Bluetooth.
-- Perfil AION sin verificar y diagnósticos exportables sin nombres ni direcciones.
-- Documentación de límites, evidencia y procedimiento de pruebas estacionarias.
+- Local SHA-256 inventory, public signature, manifest, resources, DEX, and libraries.
+- Apktool/JADX automation with logs and hash-separated outputs.
+- Search with path/line/term indexes and metadata comparison.
+- ELF inspection via NDK LLVM, without loading libraries.
+- Modular Android Kotlin base, StateFlow, tests, Compose, and Bluetooth discovery.
+- Unverified AION profile and exportable diagnostics without names or addresses.
+- Documentation of limits, evidence, and stationary test procedure.

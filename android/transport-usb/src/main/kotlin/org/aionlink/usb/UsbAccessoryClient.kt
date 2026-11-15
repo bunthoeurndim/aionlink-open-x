@@ -48,7 +48,7 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
         override fun onReceive(context: Context, intent: Intent) {
             if (intent.action == UsbManager.ACTION_USB_ACCESSORY_DETACHED) {
                 val selected = target
-                if (selected != null && manager?.accessoryList?.contains(selected) != true) stop("Accesorio USB desconectado")
+                if (selected != null && manager?.accessoryList?.contains(selected) != true) stop("USB accessory disconnected")
             }
             refresh()
         }
@@ -60,8 +60,8 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
             // Do not trust supplied extras; verify actual permission on the selected live accessory.
             val selected = target
             if (selected == null || manager?.accessoryList?.contains(selected) != true || !manager.hasPermission(selected)) {
-                stateMutable.update { it.copy(stage = UsbStage.ERROR, message = "Permiso USB no concedido o accesorio retirado") }
-                event("USB: permiso no disponible")
+                stateMutable.update { it.copy(stage = UsbStage.ERROR, message = "USB permission not granted or accessory removed") }
+                event("USB: permission unavailable")
                 target = null
             } else begin(selected, bootstrap, generation.get())
             refresh()
@@ -104,7 +104,7 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
             stateMutable.update { it.copy(accessories = accessories, hostDevices = manager?.deviceList?.size ?: 0,
                 usbPower = plugged?.takeIf { n -> n >= 0 }?.let { n -> n and BatteryManager.BATTERY_PLUGGED_USB != 0 }) }
         } catch (_: SecurityException) {
-            stateMutable.update { it.copy(message = "Android restringió la consulta USB") }
+            stateMutable.update { it.copy(message = "Android restricted the USB query") }
         }
     }
 
@@ -112,10 +112,10 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
         check(Looper.myLooper() == Looper.getMainLooper())
         val selected = handles[id]
         if (selected == null || manager?.accessoryList?.contains(selected) != true) {
-            stateMutable.update { it.copy(stage = UsbStage.ERROR, message = "Accesorio ausente; actualiza USB") }; return
+            stateMutable.update { it.copy(stage = UsbStage.ERROR, message = "Accessory absent; refresh USB") }; return
         }
         if (startObservedChannels && !UsbAccessoryIdentity.isObservedIccoa(selected.manufacturer,selected.model,selected.version)) {
-            stateMutable.update { it.copy(stage = UsbStage.ERROR, message = "El inicio experimental exige ICCOA / CarLink / 1.0.0") }; return
+            stateMutable.update { it.copy(stage = UsbStage.ERROR, message = "The experimental start requires ICCOA / CarLink / 1.0.0") }; return
         }
         stop()
         target = selected; bootstrap = startObservedChannels
@@ -131,9 +131,9 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
                 manager.requestPermission(selected,pending)
                 permissionTimeout = scope.launch {
                     delay(30000)
-                    if (ticket == generation.get() && state.value.stage == UsbStage.WAITING_PERMISSION) stop("Autorización USB pendiente; vuelve a intentarlo")
+                    if (ticket == generation.get() && state.value.stage == UsbStage.WAITING_PERMISSION) stop("USB authorization pending; try again")
                 }
-            } catch (_: SecurityException) { stop("Android rechazó solicitar permiso USB") }
+            } catch (_: SecurityException) { stop("Android refused to request USB permission") }
         }
     }
 
@@ -155,7 +155,7 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
                 val fd = opened.fileDescriptor
                 Os.fcntlInt(fd, OsConstants.F_SETFL, Os.fcntlInt(fd, OsConstants.F_GETFL,0) or OsConstants.O_NONBLOCK)
                 val deadline = SystemClock.elapsedRealtime() + 15000
-                publish(ticket) { it.copy(stage = UsbStage.OBSERVING, message = "Descriptor AOA abierto; no es una sesión ICCOA") }
+                publish(ticket) { it.copy(stage = UsbStage.OBSERVING, message = "AOA descriptor opened; not an ICCOA session") }
                 if (startChannels) {
                     for (port in listOf(7236,4321)) {
                         val (header,body) = UsbChannelStartup.request(port)
@@ -188,13 +188,13 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
                     publish(ticket) { it.copy(bytesRead = bytesRead, frames = frames,knownPorts = it.knownPorts + ports) }
                 }
                 publish(ticket) { it.copy(stage = UsbStage.COMPLETE, message = if (decoder.hasPartialFrame)
-                    "Lectura finalizada con frame incompleto; canal cerrado" else "Observación finalizada; canal cerrado. Sesión ICCOA pendiente") }
-                withContext(Dispatchers.Main) { if (ticket == generation.get()) event("USB: observación terminada; frames=$frames; sesión sin verificar") }
+                    "Read finished with an incomplete frame; channel closed" else "Observation finished; channel closed. ICCOA session pending") }
+                withContext(Dispatchers.Main) { if (ticket == generation.get()) event("USB: observation finished; frames=$frames; session unverified") }
             } catch (e: CancellationException) { throw e }
-            catch (e: ErrnoException) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "Error de E/S AOA (errno ${e.errno}); canal cerrado") } }
-            catch (_: SecurityException) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "Permiso USB revocado") } }
-            catch (_: IllegalArgumentException) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "Framing USB fuera de los límites de análisis") } }
-            catch (_: Exception) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "No se pudo usar el canal AOA; desconexión, modo no compatible o canal ocupado") } }
+            catch (e: ErrnoException) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "AOA I/O error (errno ${e.errno}); channel closed") } }
+            catch (_: SecurityException) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "USB permission revoked") } }
+            catch (_: IllegalArgumentException) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "USB framing outside analysis limits") } }
+            catch (_: Exception) { publish(ticket) { it.copy(stage = UsbStage.ERROR, message = "Could not use the AOA channel; disconnection, unsupported mode, or busy channel") } }
             finally {
                 if (opened != null) { descriptor.compareAndSet(opened,null); try { opened.close() } catch (_: Exception) { } }
             }
@@ -224,7 +224,7 @@ class UsbAccessoryClient(context: Context, private val event: (String) -> Unit) 
         work?.cancel(); work = null
         link?.let { try { it.close() } catch (_: Exception) { } }
         target = null
-        if (state.value.busy || message != null) stateMutable.update { it.copy(stage = UsbStage.CLOSED,message = message ?: "Canal USB cerrado") }
+        if (state.value.busy || message != null) stateMutable.update { it.copy(stage = UsbStage.CLOSED,message = message ?: "USB channel closed") }
     }
     fun close() {
         stop(); scope.cancel()

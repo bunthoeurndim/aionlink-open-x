@@ -5,6 +5,6 @@ import org.aionlink.protocol.*
 class ICCOAProtocolAdapter : ProtocolAdapter {
     override val id = "iccoa-research"
     override suspend fun negotiate(peer: Peer) = NegotiationResult.Unsupported(
-        "ICCOA: negociación y autenticación pendientes de investigación verificable"
+        "ICCOA: negotiation and authentication pending verifiable research"
     )
 }

@@ -11,7 +11,7 @@ class VirtualProbeJournalTest {
         val name = "test-journal-${UUID.randomUUID()}"
         val first = VirtualProbeJournal(context, name)
         try {
-            assertTrue(first.snapshot().contains("Sin prueba"))
+            assertTrue(first.snapshot().contains("No saved virtual test"))
             first.start()
             repeat(160) { first.sample("sample=$it\nextra") }
             // Wait for queued apply() writes, then verify the synthetic record reached private storage.
@@ -20,14 +20,14 @@ class VirtualProbeJournalTest {
             assertTrue(disk.contains("sample=159 extra"))
             val restarted = VirtualProbeJournal(context, name)
             val interrupted = restarted.snapshot()
-            assertTrue(interrupted.contains("EN_CURSO_O_INTERRUMPIDA"))
+            assertTrue(interrupted.contains("IN_PROGRESS_OR_INTERRUPTED"))
             assertTrue(interrupted.contains("sample=159 extra"))
             assertFalse(interrupted.contains("sample=0 extra"))
             assertTrue(interrupted.lines().size <= 151)
-            restarted.finish("Terminado")
-            assertTrue(VirtualProbeJournal(context, name).snapshot().contains("FINALIZADA"))
-            restarted.sample("No debe aparecer")
-            assertFalse(restarted.snapshot().contains("No debe aparecer"))
+            restarted.finish("Finished")
+            assertTrue(VirtualProbeJournal(context, name).snapshot().contains("FINISHED"))
+            restarted.sample("Must not appear")
+            assertFalse(restarted.snapshot().contains("Must not appear"))
         } finally {
             context.getSharedPreferences(name, 0).edit().commit()
             context.deleteSharedPreferences(name)

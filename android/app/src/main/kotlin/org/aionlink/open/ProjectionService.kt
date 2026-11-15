@@ -59,9 +59,9 @@ class ProjectionService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Proyección AionLink", NotificationManager.IMPORTANCE_LOW))
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "AionLink projection", NotificationManager.IMPORTANCE_LOW))
         val notification = Notification.Builder(this, CHANNEL).setContentTitle("AionLink Open")
-            .setContentText("Captura de pantalla preparada para el vehículo").setSmallIcon(android.R.drawable.ic_menu_upload).build()
+            .setContentText("Screen capture ready for the vehicle").setSmallIcon(android.R.drawable.ic_menu_upload).build()
         startForeground(1, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
         val code = intent?.getIntExtra(EXTRA_CODE, 0) ?: 0
         @Suppress("DEPRECATION") val data = intent?.getParcelableExtra<Intent>(EXTRA_DATA)

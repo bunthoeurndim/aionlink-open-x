@@ -52,7 +52,7 @@ private val Problem = Color(0xFFE5534B)
         Image(painterResource(R.drawable.aionlink_logo), contentDescription = null, modifier = Modifier.size(56.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(appName, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
-            Text("Android Auto en tu GAC AION • v$version",
+            Text("Android Auto in your GAC AION • v$version",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -86,7 +86,7 @@ data class SetupItem(val title: String, val detail: String, val done: Boolean, v
     Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            Text("Antes de conectar", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
+            Text("Before connecting", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                 color = MaterialTheme.colorScheme.onPrimaryContainer)
             items.forEach { item ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -111,10 +111,10 @@ data class SetupItem(val title: String, val detail: String, val done: Boolean, v
         Row(Modifier.padding(horizontal = 16.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(name, style = MaterialTheme.typography.titleMedium)
-                Text("Receptor ICCOA CarLink", style = MaterialTheme.typography.bodySmall,
+                Text("ICCOA CarLink receiver", style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Button(onClick = onConnect, enabled = enabled) { Text("Conectar") }
+            Button(onClick = onConnect, enabled = enabled) { Text("Connect") }
         }
     }
 }

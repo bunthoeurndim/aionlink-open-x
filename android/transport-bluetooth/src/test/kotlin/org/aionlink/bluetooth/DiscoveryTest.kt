@@ -5,7 +5,7 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class DiscoveryTest {
-    private fun peer(id: String) = DiscoveredDevice(id, "Sin nombre", "BLE", -51)
+    private fun peer(id: String) = DiscoveredDevice(id, "No name", "BLE", -51)
     @Test fun repeatedAdvertisementsDoNotMoveCards() {
         val first = peer("first")
         val second = peer("second")

@@ -38,21 +38,21 @@ class VirtualProbeService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var probe: VirtualDisplayVideoProbe? = null
     private lateinit var journal: VirtualProbeJournal
-    private val deadline = Runnable { finish("límite de 12 minutos") }
+    private val deadline = Runnable { finish("12-minute limit") }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) { finish("detenida por el propietario"); return START_NOT_STICKY }
+        if (intent?.action == ACTION_STOP) { finish("stopped by the owner"); return START_NOT_STICKY }
         val manager = getSystemService(NotificationManager::class.java)
-        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Prueba de pantalla apagada", NotificationManager.IMPORTANCE_LOW))
-        val notification = Notification.Builder(this, CHANNEL).setContentTitle("AionLink: prueba de pantalla apagada")
-            .setContentText("Patrón propio en pantalla virtual; no se envía nada al coche").setSmallIcon(android.R.drawable.ic_menu_view)
+        manager.createNotificationChannel(NotificationChannel(CHANNEL, "Screen-off test", NotificationManager.IMPORTANCE_LOW))
+        val notification = Notification.Builder(this, CHANNEL).setContentTitle("AionLink: screen-off test")
+            .setContentText("Own pattern on virtual display; nothing is sent to the car").setSmallIcon(android.R.drawable.ic_menu_view)
             .setOngoing(true).build()
         try {
             startForeground(2, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
         } catch (error: RuntimeException) {
-            onReport?.invoke("Sonda virtual: servicio en primer plano rechazado (${error.javaClass.simpleName})")
+            onReport?.invoke("Virtual probe: foreground service rejected (${error.javaClass.simpleName})")
             stopSelf(); return START_NOT_STICKY
         }
         if (probe != null) return START_NOT_STICKY
@@ -62,10 +62,10 @@ class VirtualProbeService : Service() {
             probe = VirtualDisplayVideoProbe(applicationContext) { message -> journal.sample(message); onReport?.invoke(message) }
                 .also { it.start() }
             mutableRunning.value = true
-            journal.sample("Servicio en primer plano activo; tipo connectedDevice; máximo 12 minutos")
+            journal.sample("Foreground service active; connectedDevice type; up to 12 minutes")
             handler.postDelayed(deadline, MAX_MS)
         } catch (error: Exception) {
-            val message = "Sonda virtual falló al iniciar: ${error.javaClass.simpleName}"
+            val message = "Virtual probe failed to start: ${error.javaClass.simpleName}"
             journal.finish(message); onReport?.invoke(message)
             probe = null; stopSelf()
         }
@@ -75,8 +75,8 @@ class VirtualProbeService : Service() {
     private fun finish(reason: String) {
         handler.removeCallbacks(deadline)
         probe?.let {
-            val summary = "Pantalla virtual propia terminada ($reason); dibujados=${it.drawnFrames}; H264=${it.encodedFrames}; " +
-                "TS/RTP cuadros=${it.muxedFrames}; paquetes=${it.rtpPackets}; paquetes inválidos=${it.invalidPackets}; no es DeX"
+            val summary = "Own virtual display finished ($reason); drawn=${it.drawnFrames}; H264=${it.encodedFrames}; " +
+                "TS/RTP frames=${it.muxedFrames}; packets=${it.rtpPackets}; invalid packets=${it.invalidPackets}; not DeX"
             journal.finish(summary); onReport?.invoke(summary); it.close()
         }
         probe = null
@@ -86,7 +86,7 @@ class VirtualProbeService : Service() {
     }
 
     override fun onDestroy() {
-        if (probe != null) finish("servicio destruido por el sistema")
+        if (probe != null) finish("service destroyed by the system")
         super.onDestroy()
     }
 }

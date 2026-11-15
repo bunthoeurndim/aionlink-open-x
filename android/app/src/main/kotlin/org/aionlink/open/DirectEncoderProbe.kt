@@ -29,8 +29,8 @@ internal class DirectEncoderProbe(private val width: Int, private val height: In
             surface = input
             encoder.start()
             running = true
-            drainingThread = Thread({ drain(encoder) }, "AionLink-sonda-h264").apply { isDaemon = true; start() }
-            drawingThread = Thread({ draw(input) }, "AionLink-sonda-h264-dibujo").apply { isDaemon = true; start() }
+            drainingThread = Thread({ drain(encoder) }, "AionLink-probe-h264").apply { isDaemon = true; start() }
+            drawingThread = Thread({ draw(input) }, "AionLink-probe-h264-drawing").apply { isDaemon = true; start() }
         } catch (error: Exception) {
             close()
             throw error

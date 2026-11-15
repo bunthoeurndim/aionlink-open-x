@@ -46,7 +46,7 @@ class PhoneSavings(private val context: Context, private val event: (String) -> 
     /** Undoes a stream that ended with the process, for instance after a crash. */
     @Synchronized fun restorePending() {
         if (streaming) return
-        if (preferences.contains(KEY_SAVED_LEVEL)) restoreBrightness("Brillo restaurado tras una sesión interrumpida")
+        if (preferences.contains(KEY_SAVED_LEVEL)) restoreBrightness("Brightness restored after an interrupted session")
         restoreRotation()
     }
 
@@ -64,7 +64,7 @@ class PhoneSavings(private val context: Context, private val event: (String) -> 
     @Synchronized fun setEnabled(value: Boolean) {
         preferences.edit().putBoolean(KEY_ENABLED, value).apply()
         mutableEnabled.value = value
-        if (streaming) { if (value) applyMinimum() else restoreBrightness("Brillo restaurado") }
+        if (streaming) { if (value) applyMinimum() else restoreBrightness("Brightness restored") }
     }
 
     /** [units] reads the stream's access units, to show whether video kept flowing when the screen state changed. */
@@ -79,36 +79,36 @@ class PhoneSavings(private val context: Context, private val event: (String) -> 
         receiver = object : BroadcastReceiver() {
             override fun onReceive(ignored: Context?, intent: Intent?) {
                 val state = if (intent?.action == Intent.ACTION_SCREEN_OFF) "apagada" else "encendida"
-                event("Pantalla del teléfono $state; unidades de vídeo=${units()}")
+                event("Phone screen $state; video units=${units()}")
             }
         }.also { context.registerReceiver(it, IntentFilter(Intent.ACTION_SCREEN_OFF).apply { addAction(Intent.ACTION_SCREEN_ON) }) }
     }
 
     @Synchronized fun onStreamStopped() {
         if (!streaming) return
-        event("Batería de la sesión: ${summary()}")
+        event("Session battery: ${summary()}")
         streaming = false
         receiver?.let { context.unregisterReceiver(it) }
         receiver = null
-        if (preferences.contains(KEY_SAVED_LEVEL)) restoreBrightness("Brillo restaurado")
+        if (preferences.contains(KEY_SAVED_LEVEL)) restoreBrightness("Brightness restored")
         restoreRotation()
     }
 
     /** Android's charge counter moves in coarse steps, and charging from the car hides the drain. */
     @Synchronized fun summary(): String {
-        if (!streaming) return "sin sesión de vídeo activa"
+        if (!streaming) return "no active video session"
         val seconds = (System.currentTimeMillis() - startedAt) / 1000
         val usedMah = (startCharge - charge()) / 1000
         val average = if (seconds > 0) usedMah * 3600 / seconds else 0
-        return "${seconds}s; consumo=$usedMah mAh; media=$average mA; cargando=${startCharging || charging()}; " +
-            "brillo mínimo=${preferences.contains(KEY_SAVED_LEVEL)}"
+        return "${seconds}s; used=$usedMah mAh; average=$average mA; charging=${startCharging || charging()}; " +
+            "minimum brightness=${preferences.contains(KEY_SAVED_LEVEL)}"
     }
 
     private fun charge() = context.getSystemService(BatteryManager::class.java).getLongProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
     private fun charging() = context.getSystemService(BatteryManager::class.java).isCharging
 
     private fun applyMinimum() {
-        if (!canWrite) { event("Brillo mínimo no aplicado: falta el permiso de ajustes del sistema"); return }
+        if (!canWrite) { event("Minimum brightness not applied: missing system settings permission"); return }
         if (preferences.contains(KEY_SAVED_LEVEL)) return
         try {
             val level = Settings.System.getInt(resolver, Settings.System.SCREEN_BRIGHTNESS)
@@ -117,13 +117,13 @@ class PhoneSavings(private val context: Context, private val event: (String) -> 
             preferences.edit().putInt(KEY_SAVED_LEVEL, level).putInt(KEY_SAVED_MODE, mode).commit()
             Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL)
             Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, MIN_BRIGHTNESS)
-            event("Brillo mínimo aplicado durante la proyección")
-        } catch (_: Settings.SettingNotFoundException) { event("Brillo mínimo no aplicado: ajuste no disponible") }
-        catch (_: SecurityException) { event("Brillo mínimo no aplicado: permiso rechazado") }
+            event("Minimum brightness applied during projection")
+        } catch (_: Settings.SettingNotFoundException) { event("Minimum brightness not applied: setting unavailable") }
+        catch (_: SecurityException) { event("Minimum brightness not applied: permission denied") }
     }
 
     private fun applyLandscape() {
-        if (!canWrite) { event("Horizontal no aplicado: falta el permiso de ajustes del sistema"); return }
+        if (!canWrite) { event("Landscape not applied: missing system settings permission"); return }
         if (preferences.contains(KEY_SAVED_AUTO_ROTATE)) return
         try {
             val auto = Settings.System.getInt(resolver, Settings.System.ACCELEROMETER_ROTATION)
@@ -131,32 +131,32 @@ class PhoneSavings(private val context: Context, private val event: (String) -> 
             preferences.edit().putInt(KEY_SAVED_AUTO_ROTATE, auto).putInt(KEY_SAVED_ROTATION, rotation).commit()
             Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, 0)
             Settings.System.putInt(resolver, Settings.System.USER_ROTATION, Surface.ROTATION_90)
-            event("Pantalla horizontal aplicada durante la proyección")
-        } catch (_: Settings.SettingNotFoundException) { event("Horizontal no aplicado: ajuste no disponible") }
-        catch (_: SecurityException) { event("Horizontal no aplicado: permiso rechazado") }
-        catch (_: IllegalArgumentException) { event("Horizontal no aplicado: ajuste rechazado") }
+            event("Landscape screen applied during projection")
+        } catch (_: Settings.SettingNotFoundException) { event("Landscape not applied: setting unavailable") }
+        catch (_: SecurityException) { event("Landscape not applied: permission denied") }
+        catch (_: IllegalArgumentException) { event("Landscape not applied: setting rejected") }
     }
 
     private fun restoreRotation() {
         if (!preferences.contains(KEY_SAVED_AUTO_ROTATE)) return
-        if (!canWrite) { event("Rotación sin restaurar: falta el permiso de ajustes del sistema"); return }
+        if (!canWrite) { event("Rotation not restored: missing system settings permission"); return }
         try {
             Settings.System.putInt(resolver, Settings.System.USER_ROTATION, preferences.getInt(KEY_SAVED_ROTATION, Surface.ROTATION_0))
             Settings.System.putInt(resolver, Settings.System.ACCELEROMETER_ROTATION, preferences.getInt(KEY_SAVED_AUTO_ROTATE, 1))
             preferences.edit().remove(KEY_SAVED_AUTO_ROTATE).remove(KEY_SAVED_ROTATION).apply()
-            event("Rotación restaurada")
-        } catch (_: SecurityException) { event("Rotación sin restaurar: permiso rechazado") }
-        catch (_: IllegalArgumentException) { event("Rotación sin restaurar: ajuste rechazado") }
+            event("Rotation restored")
+        } catch (_: SecurityException) { event("Rotation not restored: permission denied") }
+        catch (_: IllegalArgumentException) { event("Rotation not restored: setting rejected") }
     }
 
     private fun restoreBrightness(message: String) {
         if (!preferences.contains(KEY_SAVED_LEVEL)) return
-        if (!canWrite) { event("Brillo sin restaurar: falta el permiso de ajustes del sistema"); return }
+        if (!canWrite) { event("Brightness not restored: missing system settings permission"); return }
         try {
             Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS, preferences.getInt(KEY_SAVED_LEVEL, MIN_BRIGHTNESS))
             Settings.System.putInt(resolver, Settings.System.SCREEN_BRIGHTNESS_MODE, preferences.getInt(KEY_SAVED_MODE, Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL))
             preferences.edit().remove(KEY_SAVED_LEVEL).remove(KEY_SAVED_MODE).apply()
             event(message)
-        } catch (_: SecurityException) { event("Brillo sin restaurar: permiso rechazado") }
+        } catch (_: SecurityException) { event("Brightness not restored: permission denied") }
     }
 }

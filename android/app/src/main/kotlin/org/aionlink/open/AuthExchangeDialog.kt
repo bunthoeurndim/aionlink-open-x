@@ -15,16 +15,16 @@ fun AuthExchangeDialog(onSubmit: (String) -> Unit, onDismiss: () -> Unit) {
     fun cancel() { pin = ""; onDismiss() }
     AlertDialog(
         onDismissRequest = ::cancel,
-        title = { Text("Solicitud AUTH experimental") },
+        title = { Text("Experimental AUTH request") },
         text = { Column {
-            Text("Con tu vehículo estacionado, introduce de nuevo el código actual. Se enviará una solicitud experimental, se comprobará la respuesta y, si es válida, se enviará la confirmación AUTH observada. Puede fallar o desconectar el receptor. Aún no hay proyección.")
+            Text("With your vehicle parked, enter the current code again. An experimental request will be sent, the response checked, and, if valid, the observed AUTH confirmation sent. It may fail or disconnect the receiver. No projection yet.")
             OutlinedTextField(value = pin, onValueChange = { pin = it.filter { c -> c in '0'..'9' }.take(6) },
-                label = { Text("Código del vehículo") }, singleLine = true, modifier = Modifier.testTag("auth-exchange-pin"),
+                label = { Text("Vehicle code") }, singleLine = true, modifier = Modifier.testTag("auth-exchange-pin"),
                 visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
         } },
         confirmButton = { TextButton(enabled = pin.length == 6, modifier = Modifier.testTag("auth-exchange-send"), onClick = {
             val submitted = pin; pin = ""; onSubmit(submitted)
-        }) { Text("Enviar solicitud experimental") } },
-        dismissButton = { TextButton(onClick = ::cancel) { Text("Cancelar") } }
+        }) { Text("Send experimental request") } },
+        dismissButton = { TextButton(onClick = ::cancel) { Text("Cancel") } }
     )
 }

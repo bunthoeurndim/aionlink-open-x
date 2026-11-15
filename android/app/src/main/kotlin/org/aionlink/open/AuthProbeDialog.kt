@@ -9,9 +9,9 @@ import androidx.compose.runtime.Composable
 fun AuthProbeDialog(onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Comprobar canal del vehículo") },
-        text = { Text("Con tu vehículo estacionado, se abrirá una conexión TCP breve al canal AUTH observado en Samsung y Xiaomi. No se envía clave ni mensaje. El resultado no confirma autenticación ni proyección y el receptor podría cerrar la red.") },
-        confirmButton = { TextButton(onClick = onConfirm) { Text("Comprobar mi vehículo") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancelar") } }
+        title = { Text("Check vehicle channel") },
+        text = { Text("With your vehicle parked, a brief TCP connection will open to the AUTH channel observed on Samsung and Xiaomi. No key or message is sent. The result does not confirm authentication or projection, and the receiver may close the network.") },
+        confirmButton = { TextButton(onClick = onConfirm) { Text("Check my vehicle") } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } }
     )
 }

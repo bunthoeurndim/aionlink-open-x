@@ -64,7 +64,7 @@ class OwnDisplayProbe(
             val produced = framesSubmitted
             val elapsed = encoderProbe?.lastEncodedElapsed?.get() ?: 0L
             val sinceLast = if (elapsed == 0L) -1 else android.os.SystemClock.elapsedRealtime() - elapsed
-            onReport("Sonda de pantalla propia: en ${REPORT_MS / 1000}s vista=${now - reportedFrames}; dibujo directo=${drawn - reportedDrawn}; cuadros al encoder=${produced - reportedProduced}; H264=${encoded - reportedEncoded}; último H264 hace ms=$sinceLast; reloj H264 no creciente=$timestampRegressions; interactivo=$interactive; bloqueado=$locked")
+            onReport("Own-display probe: in ${REPORT_MS / 1000}s rendered=${now - reportedFrames}; direct drawing=${drawn - reportedDrawn}; frames to encoder=${produced - reportedProduced}; H264=${encoded - reportedEncoded}; last H264 $sinceLast ms ago; non-increasing H264 clock=$timestampRegressions; interactive=$interactive; locked=$locked")
             reportedFrames = now
             reportedDrawn = drawn
             reportedEncoded = encoded
@@ -79,7 +79,7 @@ class OwnDisplayProbe(
             reader = images
             images.setOnImageAvailableListener({ source -> source.acquireLatestImage()?.close(); frames.incrementAndGet() }, main)
         }.surface
-        val virtual = context.getSystemService(DisplayManager::class.java).createVirtualDisplay("AionLink-sonda", width, height, 160, surface,
+        val virtual = context.getSystemService(DisplayManager::class.java).createVirtualDisplay("AionLink-probe", width, height, 160, surface,
             DisplayManager.VIRTUAL_DISPLAY_FLAG_OWN_CONTENT_ONLY or DisplayManager.VIRTUAL_DISPLAY_FLAG_PRESENTATION)
         display = virtual
         presentation = object : Presentation(context, virtual.display) {
@@ -87,7 +87,7 @@ class OwnDisplayProbe(
         }.also { it.show() }
         if (target == null) {
             startDrawing()
-            encoderProbe = DirectEncoderProbe(width, height) { error -> main.post { onReport("Sonda H264: $error") } }
+            encoderProbe = DirectEncoderProbe(width, height) { error -> main.post { onReport("H264 probe: $error") } }
             encoderProbe?.start()
         }
         main.postDelayed(report, REPORT_MS)
@@ -96,8 +96,8 @@ class OwnDisplayProbe(
     /** The wake lock keeps the CPU running with the screen off; a stream of this kind would need the same. */
     private fun startDrawing() {
         wakeLock = context.getSystemService(PowerManager::class.java)
-            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AionLink:sonda").also { it.acquire(WAKE_LOCK_MS) }
-        val callbacks = HandlerThread("AionLink-sonda-lector").also { it.start() }
+            .newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "AionLink:probe").also { it.acquire(WAKE_LOCK_MS) }
+        val callbacks = HandlerThread("AionLink-probe-lector").also { it.start() }
         drawCallbacks = callbacks
         val images = ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 2)
         drawReader = images
@@ -113,8 +113,8 @@ class OwnDisplayProbe(
                     surface.unlockCanvasAndPost(canvas)
                     Thread.sleep(DRAW_INTERVAL_MS)
                 }
-            } catch (_: InterruptedException) { } catch (_: RuntimeException) { if (drawing) onReport("Sonda: el dibujo directo se detuvo con un error") }
-        }, "AionLink-sonda-dibujo").apply { isDaemon = true; start() }
+            } catch (_: InterruptedException) { } catch (_: RuntimeException) { if (drawing) onReport("Probe: direct drawing stopped with an error") }
+        }, "AionLink-probe-dibujo").apply { isDaemon = true; start() }
     }
 
     override fun close() {

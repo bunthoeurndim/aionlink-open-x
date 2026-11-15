@@ -21,7 +21,7 @@ object OpenHeadunit {
     fun packageName(@Suppress("UNUSED_PARAMETER") context: Context): String = PACKAGE
 
     /** For diagnostics. */
-    fun label(context: Context): String = if (installed(context)) "OpenHeadunit Lite" else "OpenHeadunit Lite no instalada"
+    fun label(context: Context): String = if (installed(context)) "OpenHeadunit Lite" else "OpenHeadunit Lite not installed"
 
     private const val RECEIVER = "com.andrerinas.openheadunit.automation.AutomationReceiver"
     private const val PROJECTION_ACTIVITY = "com.andrerinas.openheadunit.aap.AapProjectionActivity"
@@ -39,13 +39,13 @@ object OpenHeadunit {
 
     /** Mirror mode: returns a diagnostic line without any Android Auto content. */
     fun startSelfMode(context: Context): String {
-        if (!installed(context)) return "OpenHeadunit Lite no está instalada"
+        if (!installed(context)) return "OpenHeadunit Lite not installed"
         val launch = context.packageManager.getLaunchIntentForPackage(packageName(context))
-            ?: return "OpenHeadunit Lite instalada, sin actividad principal"
+            ?: return "OpenHeadunit Lite installed, no main activity"
         // Bring the receiver UI to the front first so Android Auto has a visible, landscape surface to mirror.
         context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         selfModeBroadcast(context, noUi = false)
-        return "OpenHeadunit Lite abierto y self mode solicitado (broadcast documentado); Android Auto lo gestiona OpenHeadunit Lite"
+        return "OpenHeadunit Lite opened and self mode requested (documented broadcast); Android Auto is managed by OpenHeadunit Lite"
     }
 
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -54,19 +54,19 @@ object OpenHeadunit {
 
     /** Refuse a denied launch before sending any command to the separately installed receiver. */
     fun startOnDisplay(context: Context, displayId: Int, report: (String) -> Unit, onLaunched: () -> Unit = {}) {
-        if (!installed(context)) { report("OpenHeadunit Lite no está instalada"); return }
+        if (!installed(context)) { report("OpenHeadunit Lite not installed"); return }
         if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS)) {
-            report("Android no admite actividades en pantallas secundarias"); return
+            report("Android does not support activities on secondary displays"); return
         }
         val intent = projectionIntent(context)
         val allowed = try {
             context.getSystemService(android.app.ActivityManager::class.java)
                 .isActivityStartAllowedOnDisplay(context, displayId, intent)
         } catch (error: RuntimeException) {
-            report("No se pudo comprobar el acceso a la pantalla: ${error.javaClass.simpleName}"); return
+            report("Could not check display access: ${error.javaClass.simpleName}"); return
         }
         if (!allowed) {
-            report("Android no autoriza esta actividad en la pantalla virtual; no se inició ni detuvo OpenHeadunit Lite")
+            report("Android does not authorize this activity on the virtual display; OpenHeadunit Lite was neither started nor stopped")
             return
         }
         val attempt = ++generation
@@ -78,7 +78,7 @@ object OpenHeadunit {
                 handler.postDelayed({
                     if (attempt == generation) {
                         val shown = showOnDisplay(context, displayId)
-                        report("$shown; self mode solicitado sin interfaz propia")
+                        report("$shown; self mode requested without its own UI")
                         if (shown.startsWith("SOLICITADO")) handler.postDelayed({
                             if (attempt == generation) onLaunched()
                         }, PLACEHOLDER_HOLD_MS)
@@ -101,16 +101,16 @@ object OpenHeadunit {
 
     /** Requires a visible AionLink activity (Android limits background starts) and an embeddable activity. */
     fun showOnDisplay(context: Context, displayId: Int): String {
-        if (!installed(context)) return "OpenHeadunit Lite no está instalada"
+        if (!installed(context)) return "OpenHeadunit Lite not installed"
         val intent = projectionIntent(context)
         if (!context.packageManager.hasSystemFeature(PackageManager.FEATURE_ACTIVITIES_ON_SECONDARY_DISPLAYS))
-            return "Android no admite actividades en pantallas secundarias"
+            return "Android does not support activities on secondary displays"
         return try {
             context.startActivity(intent, android.app.ActivityOptions.makeBasic().setLaunchDisplayId(displayId).toBundle())
-            "SOLICITADO: Android recibió la petición; la imagen aún no está verificada"
+            "REQUESTED: Android received the request; the image is not yet verified"
         } catch (error: RuntimeException) {
-            "No se pudo abrir OpenHeadunit Lite en pantalla virtual: ${error.javaClass.simpleName}" +
-                if (!CarDisplayHostActivity.present) " (la anfitriona de AionLink no está en la pantalla)" else ""
+            "Could not open OpenHeadunit Lite on the virtual display: ${error.javaClass.simpleName}" +
+                if (!CarDisplayHostActivity.present) " (the AionLink host is not on the display)" else ""
         }
     }
 

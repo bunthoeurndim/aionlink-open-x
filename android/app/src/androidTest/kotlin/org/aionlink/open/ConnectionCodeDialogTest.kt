@@ -18,7 +18,7 @@ class ConnectionCodeDialogTest {
     @Test fun blockedPreflightStillShowsCodeFieldButCannotSend() {
         var sends = 0
         compose.setContent { MaterialTheme {
-            ConnectionCodeDialog(CodeReadiness.BLOCKED, "Requisito local no disponible", { _, _, _ -> sends++ }, {})
+            ConnectionCodeDialog(CodeReadiness.BLOCKED, "Local requirement unavailable", { _, _, _ -> sends++ }, {})
         } }
         compose.onNodeWithTag("connection-code").assertIsDisplayed().performTextInput("123456")
         compose.onNodeWithTag("submit-code").assertIsNotEnabled()
@@ -37,7 +37,7 @@ class ConnectionCodeDialogTest {
     }
     @Test fun preparingShowsFieldWithoutAllowingPrematureSend() {
         compose.setContent { MaterialTheme {
-            ConnectionCodeDialog(CodeReadiness.PREPARING, "Comprobando requisitos", { _, _, _ -> }, {})
+            ConnectionCodeDialog(CodeReadiness.PREPARING, "Checking requirements", { _, _, _ -> }, {})
         } }
         compose.onNodeWithTag("connection-code").assertIsDisplayed().performTextInput("123456")
         compose.onNodeWithTag("submit-code").assertIsNotEnabled()
@@ -45,8 +45,8 @@ class ConnectionCodeDialogTest {
     @Test fun closingAndReopeningDiscardsTheCode() {
         compose.setContent { MaterialTheme {
             var visible by remember { mutableStateOf(true) }
-            if (visible) ConnectionCodeDialog(CodeReadiness.BLOCKED, "Requisito pendiente", { _, _, _ -> }, { visible = false })
-            else TextButton(onClick = { visible = true }, modifier = Modifier.testTag("reopen")) { Text("Reabrir prueba") }
+            if (visible) ConnectionCodeDialog(CodeReadiness.BLOCKED, "Pending requirement", { _, _, _ -> }, { visible = false })
+            else TextButton(onClick = { visible = true }, modifier = Modifier.testTag("reopen")) { Text("Reopen test") }
         } }
         compose.onNodeWithTag("connection-code").performTextInput("123456")
         compose.onNodeWithTag("close-code").performClick()
@@ -70,9 +70,9 @@ class ConnectionCodeDialogTest {
     @Test fun anonymousConsentIsNotRetainedAfterClosing() {
         compose.setContent { MaterialTheme {
             var visible by remember { mutableStateOf(true) }
-            if (visible) ConnectionCodeDialog(CodeReadiness.ANONYMIZED_EXPERIMENT, "Prueba de interfaz",
+            if (visible) ConnectionCodeDialog(CodeReadiness.ANONYMIZED_EXPERIMENT, "UI test",
                 { _, _, _ -> }, { visible = false })
-            else TextButton(onClick = { visible = true }, modifier = Modifier.testTag("reopen")) { Text("Reabrir prueba") }
+            else TextButton(onClick = { visible = true }, modifier = Modifier.testTag("reopen")) { Text("Reopen test") }
         } }
         compose.onNodeWithTag("anonymous-consent").performScrollTo().performClick()
         compose.onNodeWithTag("close-code").performClick()
@@ -84,8 +84,8 @@ class ConnectionCodeDialogTest {
         var automatic = false
         compose.setContent { MaterialTheme {
             var visible by remember { mutableStateOf(true) }
-            if (visible) ConnectionCodeDialog(CodeReadiness.READY, "Prueba", { _, _, opted -> automatic = opted }, { visible = false })
-            else TextButton(onClick = { visible = true }, modifier = Modifier.testTag("reopen")) { Text("Reabrir") }
+            if (visible) ConnectionCodeDialog(CodeReadiness.READY, "Test", { _, _, opted -> automatic = opted }, { visible = false })
+            else TextButton(onClick = { visible = true }, modifier = Modifier.testTag("reopen")) { Text("Reopen") }
         } }
         compose.onNodeWithTag("auto-auth-consent").performScrollTo().assertIsOff().performClick()
         compose.onNodeWithTag("close-code").performClick()

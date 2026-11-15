@@ -44,10 +44,10 @@ class BluetoothDiscovery(context: Context) {
             val key = device.address + transport
             val id = identities.getOrPut(key) { UUID.randomUUID().toString().take(8) }
             if (transport == "BLE") handles[id] = device
-            val item = DiscoveredDevice(id, device.name ?: "Sin nombre", transport, rssi,
+            val item = DiscoveredDevice(id, device.name ?: "No name", transport, rssi,
                 services.size, AdvertisementEvidence.recognizedServices(services), connectable)
             mutableDevices.value = mergeObservation(mutableDevices.value, item)
-        } catch (_: SecurityException) { stop("Permiso Bluetooth revocado") }
+        } catch (_: SecurityException) { stop("Bluetooth permission revoked") }
     }
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -80,11 +80,11 @@ class BluetoothDiscovery(context: Context) {
     @SuppressLint("MissingPermission", "UnspecifiedRegisterReceiverFlag")
     fun start(iccoaOnly: Boolean = true, onFinished: (String?) -> Unit) {
         stop()
-        if (!hasPermissions()) { onFinished("Permisos pendientes"); return }
+        if (!hasPermissions()) { onFinished("Permissions pending"); return }
         val radio = adapter
-        if (radio == null) { onFinished("Bluetooth no disponible"); return }
+        if (radio == null) { onFinished("Bluetooth unavailable"); return }
         try {
-            if (!radio.isEnabled) { onFinished("Activa Bluetooth desde los ajustes del teléfono"); return }
+            if (!radio.isEnabled) { onFinished("Turn on Bluetooth from the phone settings"); return }
             mutableDevices.value = emptyList(); identities.clear(); handles.clear()
             completion = onFinished; scanning = true; mutableScanning.value = true
             // Bluetooth broadcasts originate from a privileged system component.
@@ -101,10 +101,10 @@ class BluetoothDiscovery(context: Context) {
             val settings = ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
                 .setReportDelay(0).build()
             scanner?.startScan(filters, settings, callback)
-            if (!classic && scanner == null) { stop("No se pudo iniciar el descubrimiento"); return }
+            if (!classic && scanner == null) { stop("Could not start discovery"); return }
             handler.postDelayed(timeout, 15000)
-        } catch (_: SecurityException) { stop("Permiso Bluetooth denegado") }
-        catch (_: IllegalStateException) { stop("Bluetooth no disponible") }
+        } catch (_: SecurityException) { stop("Bluetooth permission denied") }
+        catch (_: IllegalStateException) { stop("Bluetooth unavailable") }
     }
     @SuppressLint("MissingPermission")
     fun stop(error: String? = null) {

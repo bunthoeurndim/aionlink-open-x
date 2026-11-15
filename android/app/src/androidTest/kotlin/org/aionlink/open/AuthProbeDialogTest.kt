@@ -16,12 +16,12 @@ class AuthProbeDialogTest {
         var checks = 0
         var dismissals = 0
         compose.setContent { MaterialTheme { AuthProbeDialog({ checks++ }, { dismissals++ }) } }
-        compose.onNodeWithText("Comprobar mi vehículo").assertIsDisplayed()
+        compose.onNodeWithText("Check my vehicle").assertIsDisplayed()
         assertEquals(0, checks)
-        compose.onNodeWithText("Cancelar").performClick()
+        compose.onNodeWithText("Cancel").performClick()
         assertEquals(1, dismissals)
         assertEquals(0, checks)
-        compose.onNodeWithText("Comprobar mi vehículo").performClick()
+        compose.onNodeWithText("Check my vehicle").performClick()
         assertEquals(1, checks)
     }
 }

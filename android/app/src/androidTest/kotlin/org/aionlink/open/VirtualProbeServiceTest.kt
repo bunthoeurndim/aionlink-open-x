@@ -17,18 +17,18 @@ class VirtualProbeServiceTest {
             assertTrue("service did not start", VirtualProbeService.running.value)
             Thread.sleep(11_000)
             val journal = VirtualProbeJournal(context).snapshot()
-            assertTrue(journal, journal.contains("EN_CURSO_O_INTERRUMPIDA"))
-            assertTrue(journal, journal.contains("Servicio en primer plano activo"))
-            assertTrue(journal, journal.contains("Pantalla virtual propia 1920x960"))
-            assertTrue(journal, journal.contains("servicio en primer plano=true"))
+            assertTrue(journal, journal.contains("IN_PROGRESS_OR_INTERRUPTED"))
+            assertTrue(journal, journal.contains("Foreground service active"))
+            assertTrue(journal, journal.contains("Own virtual display 1920x960"))
+            assertTrue(journal, journal.contains("foreground service=true"))
             assertTrue(journal, Regex("H264=(\\d+)").findAll(journal).any { it.groupValues[1].toInt() > 100 })
-            assertTrue(journal, journal.contains("paquetes inválidos=0"))
+            assertTrue(journal, journal.contains("invalid packets=0"))
         } finally {
             VirtualProbeService.stop(context)
             val deadline = System.currentTimeMillis() + 5000
             while (VirtualProbeService.running.value && System.currentTimeMillis() < deadline) Thread.sleep(100)
         }
         assertFalse("service did not stop", VirtualProbeService.running.value)
-        assertTrue(VirtualProbeJournal(context).snapshot().contains("FINALIZADA"))
+        assertTrue(VirtualProbeJournal(context).snapshot().contains("FINISHED"))
     }
 }

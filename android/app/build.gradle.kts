@@ -6,7 +6,7 @@ android {
     defaultConfig {
         // Optional isolated lab package lets encoder tests run without replacing the owner's installed app.
         applicationId = if (project.hasProperty("aionlinkLab")) "org.aionlink.open.lab" else "org.aionlink.open"
-        manifestPlaceholders["applicationLabel"] = if (project.hasProperty("aionlinkLab")) "AionLink Sonda" else "AionLink Open"
+        manifestPlaceholders["applicationLabel"] = if (project.hasProperty("aionlinkLab")) "AionLink Probe" else "AionLink Open"
         minSdk = 29; targetSdk = 35
         versionCode = 42; versionName = "0.42.0-research"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
