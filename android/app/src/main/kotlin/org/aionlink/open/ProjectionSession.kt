@@ -239,7 +239,9 @@ class ProjectionSession(private val context: Context, private val savings: Phone
             val target = if (requested.source == "CEA" || ScreenEncoder.supports(requested.width, requested.height, requested.fps)) requested
                 else WfdFormats.encodeTarget(play.mode, null, false).copy(source = "CEA_BY_ENCODER")
             // Car mode content is mostly static interface; it does not need the mirror's bitrate (see relayBitrate).
-            val carBitrate = WfdFormats.relayBitrate(target.width, target.height, target.fps)
+            // Exception: Android Auto through OpenHeadunit Lite carries a live UI with maps and text, so it
+            // gets the full video bitrate instead of the relay bitrate (1920x960p30: 11 Mbps, not 3.9 Mbps).
+            val carBitrate = if (externalHeadunit) target.bitrate else WfdFormats.relayBitrate(target.width, target.height, target.fps)
             val label = "${target.width}x${target.height}p${target.fps}; ${(if (carMode) carBitrate else target.bitrate) / 1000} kbps; source=${target.source}; " +
                 if (externalHeadunit) "source=OPEN_HEADUNIT_EXPERIMENTAL" else if (carMode) "source=CAR_MODE" else "source=MIRROR"
             // Touch coordinates arrive in the frame the car displays, which is the encoded frame.
