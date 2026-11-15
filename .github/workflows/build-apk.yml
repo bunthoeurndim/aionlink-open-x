@@ -1,0 +1,65 @@
+name: Build AionLink APK
+
+# Builds the debug APKs for AionLink Open and AionLink Probe (lab variant)
+# on every push / pull request. No signing secrets are needed: these are
+# debug builds signed with the debug key, for testing only.
+# The release / signed build is intentionally not done here.
+on:
+  push:
+    branches: [main, english-ui]
+  pull_request:
+    branches: [main, english-ui]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Build debug APKs
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Run Python unit tests
+        working-directory: ${{ github.workspace }}
+        run: python3 -m unittest discover -s tests/unit -v
+
+      - name: Run JVM unit tests
+        run: ./gradlew :core:test :protocol-iccoa:test :projection:test :transport-bluetooth:testDebugUnitTest :transport-wifi:testDebugUnitTest --no-daemon --console=plain
+
+      - name: Build AionLink Open (debug)
+        run: ./gradlew :app:assembleDebug --no-daemon --console=plain
+
+      - name: Save AionLink Open APK
+        run: |
+          mkdir -p "${{ github.workspace }}/artifacts"
+          cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-open-debug.apk"
+
+      - name: Build AionLink Probe / lab variant (debug)
+        run: ./gradlew :app:assembleDebug -PaionlinkLab --no-daemon --console=plain
+
+      - name: Save AionLink Probe APK
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-probe-debug.apk"
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: aionlink-debug-apks
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 30
