@@ -42,11 +42,25 @@ class ExperimentalAuthWireTest {
         assertEquals(0, input.readTag())
     }
 
-    @Test fun rejectsUnconfirmedOrOversizedInputBeforeEncoding() {
+    @Test fun unconfirmedNormalInputRejectedQuickShapeEncodes() {
         val r = request()
         val bad = ExperimentalAuthWire.Request(r.version, r.authPoint, r.proof, r.agreementPoint,
             r.agreementSignature, r.nonce, r.clientId, r.model, false, r.workModes, r.productName)
         try { ExperimentalAuthWire.requestBody(bad); fail("no consent") } catch (_: IllegalArgumentException) { }
+        // QUICK shape: empty authPk/proof with confirmed=false is the stored-key reconnect, not a
+        // consentless normal request; it encodes with field 9 = false.
+        val quick = ExperimentalAuthWire.Request(r.version, ByteArray(0), ByteArray(0), r.agreementPoint,
+            r.agreementSignature, r.nonce, r.clientId, r.model, false, r.workModes, r.productName)
+        val input = com.google.protobuf.CodedInputStream.newInstance(ExperimentalAuthWire.requestBody(quick))
+        assertEquals(8, input.readTag()); assertEquals(1793, input.readInt32())
+        assertEquals(18, input.readTag()); assertEquals(0, input.readByteArray().size)
+        assertEquals(26, input.readTag()); assertEquals(0, input.readByteArray().size)
+        assertEquals(34, input.readTag()); assertEquals(64, input.readByteArray().size)
+        assertEquals(42, input.readTag()); assertTrue(input.readByteArray().isNotEmpty())
+        assertEquals(50, input.readTag()); assertEquals(32, input.readByteArray().size)
+        assertEquals(58, input.readTag()); assertArrayEquals("client".toByteArray(), input.readByteArray())
+        assertEquals(66, input.readTag()); assertEquals("model", input.readStringRequireUtf8())
+        assertEquals(72, input.readTag()); assertFalse(input.readBool())
         try { ExperimentalAuthWire.requestFrame(r, -1, 0); fail("invalid sequence") } catch (_: IllegalArgumentException) { }
     }
 

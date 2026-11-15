@@ -13,8 +13,11 @@ import javax.crypto.KeyAgreement
 enum class PeerCheck { VERIFIED_PROOF_AND_SIGNATURE, BAD_VERSION_OR_RESULT, MISSING_OR_INVALID_FIELDS, BAD_PROOF, BAD_SIGNATURE }
 
 /** Single-use candidate for the normal key-negotiation stage. A verified response yields a session key
- * used only for the observed AuthConfirm; acceptance by the receiver is not implied. */
-class ExperimentalNormalAuth(pinInput: ByteArray, clientId: ByteArray, model: String, workModes: Int) : AutoCloseable {
+ * used only for the observed AuthConfirm; acceptance by the receiver is not implied.
+ * When [persistentAuthPair] is given (a stored Keystore key for this car), its public key is sent as
+ * authPk instead of an ephemeral one, so a later QUICK reconnect can prove the same identity. */
+class ExperimentalNormalAuth(pinInput: ByteArray, clientId: ByteArray, model: String, workModes: Int,
+                             persistentAuthPair: KeyPair? = null) : AutoCloseable {
     private var pin: ByteArray? = null
     private var authPair: KeyPair? = null
     private var agreementPair: KeyPair? = null
@@ -28,7 +31,7 @@ class ExperimentalNormalAuth(pinInput: ByteArray, clientId: ByteArray, model: St
         require(pinInput.size == 6 && pinInput.all { it in 48..57 })
         require(id.size in 1..64 && phoneModel.toByteArray(Charsets.UTF_8).size in 1..64 && modes >= 0)
         val generator = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }
-        authPair = generator.generateKeyPair()
+        authPair = persistentAuthPair ?: generator.generateKeyPair()
         agreementPair = generator.generateKeyPair()
         SecureRandom().nextBytes(nonce)
         pin = pinInput.copyOf()

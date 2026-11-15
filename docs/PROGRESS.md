@@ -2559,3 +2559,40 @@ Antes de PLAY se aplica al vídeo que viene; en mitad de la sesión detiene solo
 flujo (`restartStreamForModeSwitch`, sin cerrar la sesión ni pedir otro PIN) y el
 nuevo modo se aplica cuando el coche vuelva a enviar PLAY. Sin verificar en hardware:
 si el coche no reenvía PLAY, la imagen queda parada hasta reconectar.
+
+## Conexión rápida sin código (2026-11-16)
+
+Investigación estática de Xiaomi CarWith 3.8.0 y OPPO CarLink 16.4.2 (sin ejecutar
+ningún APK; informe en `~/workspace/xiaomi-oppo-carlink-research.md`): el cliente de
+Xiaomi guarda tras el primer emparejamiento con PIN una clave EC P-256 en el
+Keystore del teléfono (alias `client_auth_key_for_server_<id>`) y la clave pública
+del coche en preferencias; en la reconexión envía una petición AUTH con authPk y
+authPkHmac vacíos y una firma ECDSA con la clave guardada, sin PIN. OPPO no lleva
+el protocolo en la app (delega en un servicio del sistema) y su
+ICCOADigitalKeyManager es la llave digital CCC, no la reconexión CarLink.
+
+Implementación en AionLink (solo código propio, sin copiar código propietario):
+`ExperimentalQuickAuth` (QUICK: petición con authPk/proof vacíos, confirmed=false,
+firma sobre agreement‖nonce; verificación de la firma del coche con la clave
+guardada; códigos de resultado 1 = rechazado, 2 = pide confirmación, 3 = error del
+servidor, 4 = modos no aceptados), `ExperimentalAuthWire` acepta la forma QUICK
+(una petición NORMAL completa sin confirmar sigue rechazada), `ExperimentalNormalAuth`
+acepta una pareja de claves persistente, `ExperimentalAuthExchange.runQuick` y
+`P2pConnector.startQuickAuthExchange`. `QuickConnectStore` guarda por coche (clave:
+dirección BLE, la misma identidad estable que ya usa el descubrimiento) la clave
+del Keystore y la clave pública del coche en preferencias privadas
+`aionlink_peers`; `ClientInfo` acepta el token `authentication` guardado del
+ServerInfo en lugar del PIN, y `ServerInfo` lo captura cuando el coche lo ofrece.
+Flujo: en la primera conexión con código se crea la clave y se guarda el registro;
+en las siguientes, `prepareConnection` detecta el registro y conecta sin mostrar
+el diálogo del código. Cualquier fallo (sin registro, Keystore, rechazo del coche,
+transporte) vuelve al diálogo del código exactamente como antes; si el coche
+rechaza la clave guardada, el registro se borra. La exportación de diagnóstico
+muestra solo el número de claves guardadas, nunca valores.
+
+Sin verificar en hardware: si el receptor ADiGO del Aion acepta QUICK de un
+cliente no oficial (posible lista de proveedores), el papel exacto del campo
+`authentication` en la capa BLE y la confirmación QUICK_W_UC (resultado 2 hoy
+vuelve al código). Prueba decisiva: conectar una vez con el código tras instalar
+y comprobar que la segunda conexión no pide el código; el registro de eventos
+dirá si QUICK tuvo éxito o por qué volvió al código.

@@ -26,10 +26,14 @@ object ExperimentalAuthWire {
 
     fun requestBody(value: Request): ByteArray {
         require(value.version > 0 && value.workModes >= 0)
-        require(value.authPoint.size == 64 && value.proof.size == 32 && value.agreementPoint.size == 64)
+        // QUICK reconnect (Xiaomi ClientKeyNegotiator, decompiled 2026-11-16): empty authPk/authPkHmac
+        // and confirmed=false, authenticated by a signature from the stored key instead of a PIN proof.
+        // A full NORMAL request still requires confirmed=true.
+        val quick = value.authPoint.isEmpty() && value.proof.isEmpty()
+        require((value.authPoint.size == 64 || quick) && (value.proof.size == 32 || quick) && value.agreementPoint.size == 64)
         require(value.agreementSignature.size in 8..80 && value.nonce.size == 32)
         require(value.clientId.size in 1..64 && value.model.toByteArray(Charsets.UTF_8).size in 1..64)
-        require(value.productName.toByteArray(Charsets.UTF_8).size in 1..64 && value.confirmed)
+        require(value.productName.toByteArray(Charsets.UTF_8).size in 1..64 && (value.confirmed || quick))
         val out = ByteArrayOutputStream()
         fun number(field: Int, n: Int) { varint(out, (field shl 3).toLong()); varint(out, n.toLong()) }
         fun blob(field: Int, data: ByteArray) {
@@ -38,7 +42,7 @@ object ExperimentalAuthWire {
         number(1, value.version); blob(2, value.authPoint); blob(3, value.proof)
         blob(4, value.agreementPoint); blob(5, value.agreementSignature); blob(6, value.nonce)
         blob(7, value.clientId); blob(8, value.model.toByteArray(Charsets.UTF_8))
-        number(9, 1); number(10, value.workModes); blob(11, value.productName.toByteArray(Charsets.UTF_8))
+        number(9, if (value.confirmed) 1 else 0); number(10, value.workModes); blob(11, value.productName.toByteArray(Charsets.UTF_8))
         return out.toByteArray().also { require(it.size <= MAX_BODY) }
     }
 

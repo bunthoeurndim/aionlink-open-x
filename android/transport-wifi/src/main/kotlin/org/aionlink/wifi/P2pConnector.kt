@@ -13,6 +13,7 @@ import android.os.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.aionlink.iccoa.ServerInfo
+import org.aionlink.iccoa.ExperimentalQuickAuth
 import org.aionlink.iccoa.validUnicastMac
 import org.aionlink.iccoa.PlatformP2pAddress
 import org.aionlink.iccoa.AddressDisclosure
@@ -293,8 +294,12 @@ class P2pConnector(context: Context) {
             }
         }.apply { name = "AionLink-auth-check"; isDaemon = true; start() }
     }
-    /** Owner explicitly initiates one experimental AUTH request on the verified P2P group. */
-    fun startAuthExchange(pin: ByteArray, clientId: ByteArray, model: String) {
+    /** Owner explicitly initiates one experimental AUTH request on the verified P2P group. When a stored
+     * auth key is given, the normal attempt sends it as authPk; [onVerifiedPeer] then receives the car's
+     * auth public key so the caller can store the peer record for a later QUICK reconnect. */
+    fun startAuthExchange(pin: ByteArray, clientId: ByteArray, model: String,
+                          persistentAuthPair: java.security.KeyPair? = null,
+                          onVerifiedPeer: ((ByteArray) -> Unit)? = null) {
         fun unavailable(detail: String) {
             pin.fill(0); clientId.fill(0)
             mutableExchange.value = AuthExchangeStatus(AuthProbeStage.UNAVAILABLE, detail)
@@ -331,7 +336,8 @@ class P2pConnector(context: Context) {
         exchangeTimeout = deadline; handler.postDelayed(deadline, 10000)
         Thread {
             val result = ExperimentalAuthExchange.run(socket, endpoint.address, 57209, pin, clientId, model,
-                onAuthenticated = { local, key -> onSessionAuthenticated?.invoke(local, key) ?: key.fill(0) }) {
+                onAuthenticated = { local, key -> onSessionAuthenticated?.invoke(local, key) ?: key.fill(0) },
+                persistentAuthPair = persistentAuthPair, onVerifiedPeer = onVerifiedPeer) {
                 if (matched != null) matched.bindSocket(it) else it.bind(InetSocketAddress(source!!, 0))
             }
             handler.post {
@@ -340,6 +346,55 @@ class P2pConnector(context: Context) {
                 mutableExchange.value = AuthExchangeStatus(AuthProbeStage.FINISHED, "$result; route=$route; session not confirmed")
             }
         }.apply { name = "AionLink-auth-request"; isDaemon = true; start() }
+    }
+    /** One QUICK reconnect attempt on the verified P2P group, using the stored key. No PIN involved;
+     * any failure leaves the PIN flow untouched and the caller falls back to asking for the code. */
+    fun startQuickAuthExchange(quick: ExperimentalQuickAuth, clientId: ByteArray, model: String) {
+        fun unavailable(detail: String) {
+            clientId.fill(0)
+            mutableExchange.value = AuthExchangeStatus(AuthProbeStage.UNAVAILABLE, detail)
+        }
+        if (mutableProbe.value.busy || mutableExchange.value.busy) { clientId.fill(0); return }
+        val endpoint = verifiedEndpoint
+        if (mutable.value.stage != NetworkStage.CONNECTED || mutable.value.mode != NetworkMode.P2P || endpoint == null) {
+            unavailable("Receiver P2P group unavailable"); return
+        }
+        val service = connectivity ?: run { unavailable("Network service unavailable"); return }
+        val matched = try {
+            @Suppress("DEPRECATION")
+            service.allNetworks.firstOrNull { service.getLinkProperties(it)?.interfaceName == endpoint.interfaceName }
+        } catch (_: SecurityException) { null }
+        val source = if (matched == null) try {
+            val addresses = NetworkInterface.getByName(endpoint.interfaceName)?.interfaceAddresses?.mapNotNull {
+                it.address?.let { address -> P2pSourceAddress.Candidate(address, it.networkPrefixLength.toInt()) }
+            } ?: emptyList()
+            P2pSourceAddress.select(endpoint.address, addresses)
+        } catch (_: java.net.SocketException) { null } catch (_: SecurityException) { null } else null
+        if (matched == null && source == null) { unavailable("P2P route unavailable"); return }
+        val ticket = ++probeGeneration
+        val socket = Socket(); probeSocket = socket
+        val route = if (matched != null) "NETWORK" else "P2P_SOURCE"
+        mutableExchange.value = AuthExchangeStatus(AuthProbeStage.RUNNING, "QUICK reconnect; route=$route")
+        val deadline = Runnable {
+            if (ticket == probeGeneration && mutableExchange.value.busy) {
+                probeGeneration++
+                try { socket.close() } catch (_: java.io.IOException) { }
+                probeSocket = null; exchangeTimeout = null
+                mutableExchange.value = AuthExchangeStatus(AuthProbeStage.FINISHED, "TIMEOUT_TOTAL; route=$route")
+            }
+        }
+        exchangeTimeout = deadline; handler.postDelayed(deadline, 10000)
+        Thread {
+            val result = ExperimentalAuthExchange.runQuick(socket, endpoint.address, 57209, quick, clientId, model,
+                onAuthenticated = { local, key -> onSessionAuthenticated?.invoke(local, key) ?: key.fill(0) }) {
+                if (matched != null) matched.bindSocket(it) else it.bind(InetSocketAddress(source!!, 0))
+            }
+            handler.post {
+                if (ticket != probeGeneration) return@post
+                handler.removeCallbacks(deadline); exchangeTimeout = null; probeSocket = null
+                mutableExchange.value = AuthExchangeStatus(AuthProbeStage.FINISHED, "$result; route=$route; session not confirmed")
+            }
+        }.apply { name = "AionLink-quick-auth"; isDaemon = true; start() }
     }
     private fun fail(message: String) { release(); publish(NetworkStage.ERROR, message) }
     fun stop(reason: String = "AionLink preparation/network stopped") {

@@ -4,19 +4,22 @@ import org.json.JSONObject
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 
-/** Own client identity and platform metadata. Anonymized metadata requires explicit consent. */
+/** Own client identity and platform metadata. Anonymized metadata requires explicit consent.
+ * When [authentication] is given (a stored token from the car's ServerInfo), it is sent as
+ * pinCodeOrAuthentication instead of the PIN, for a QUICK reconnect; the PIN still validates. */
 class ClientInfo(private val id: String, private val model: String, private val pin: String,
                  platformAddress: PlatformP2pAddress, private val supports5Ghz: Boolean,
-                 consentToAnonymized: Boolean = false) {
+                 consentToAnonymized: Boolean = false, private val authentication: String? = null) {
     private val p2pMac = platformAddress.forClientInfo(consentToAnonymized)
     val usesAnonymizedMetadata = platformAddress.disclosure == AddressDisclosure.ANDROID_ANONYMIZED
     init {
         require(id.matches(Regex("[A-Za-z0-9]{6}"))) { "Invalid local identity" }
         require(model.isNotBlank() && model.toByteArray(Charsets.UTF_8).size <= 64) { "Invalid local model" }
         require(pin.matches(Regex("[0-9]{6}"))) { "Six digits required" }
+        if (authentication != null) require(authentication.isNotBlank() && authentication.length <= 256) { "Invalid stored authentication" }
     }
     fun encode(): ByteArray = JSONObject().put("id", id).put("model", model)
-        .put("name", "AionLink Open").put("pinCodeOrAuthentication", pin)
+        .put("name", "AionLink Open").put("pinCodeOrAuthentication", authentication ?: pin)
         .put("band", if (supports5Ghz) 1 else 0).put("mac", p2pMac).put("type", 1001)
         .toString().toByteArray(Charsets.UTF_8).also { require(it.size <= 512) { "ClientInfo exceeds the GATT limit" } }
     override fun toString() = "ClientInfo(redacted)"
@@ -60,7 +63,7 @@ data class ServerPort private constructor(val value: Int?, val status: ServerPor
 
 class ServerInfo private constructor(val ssid: String, val passphrase: String, val mac: String,
                                     val frequency: Int, val port: Int?, val mode: NetworkMode, val portStatus: ServerPortStatus,
-                                    val portRange: ServerPortRange) {
+                                    val portRange: ServerPortRange, val authentication: String? = null) {
     override fun toString() = "ServerInfo(redacted)"
     companion object {
         /** Strict endpoint parser for consumers that require a usable TCP/UDP port. */
@@ -89,7 +92,10 @@ class ServerInfo private constructor(val ssid: String, val passphrase: String, v
                 checkField(psk.length in 8..63 && psk.all { it.code in 32..126 }, ServerInfoFault.PSK)
                 checkField(validUnicastMac(mac), ServerInfoFault.MAC)
                 checkField(freq in 2412..2484 || freq in 5000..5900 || mode == NetworkMode.ACCESS_POINT && freq == 0, ServerInfoFault.FREQUENCY)
-                return ServerInfo(ssid, psk, mac, freq, endpoint.value, mode, endpoint.status, endpoint.range)
+                // Optional token the car may offer for a later QUICK reconnect (Xiaomi stores the same
+                // field from its ServerInfo); absent on cars that do not offer it. Never logged.
+                val authentication = json.optString("authentication", null)?.takeIf { it.isNotEmpty() }?.take(256)
+                return ServerInfo(ssid, psk, mac, freq, endpoint.value, mode, endpoint.status, endpoint.range, authentication)
             } catch (error: ServerInfoException) {
                 throw error
             } catch (_: Exception) {

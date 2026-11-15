@@ -31,6 +31,9 @@ import org.aionlink.bluetooth.BluetoothDiscovery
 import org.aionlink.bluetooth.GattInspector
 import org.aionlink.bluetooth.BleNegotiator
 import org.aionlink.iccoa.ClientInfo
+import org.aionlink.iccoa.ExperimentalAuthWire
+import org.aionlink.iccoa.ExperimentalQuickAuth
+import org.aionlink.iccoa.ServerInfo
 import org.aionlink.iccoa.AddressDisclosure
 import org.aionlink.iccoa.NormalLinkReadiness
 import org.aionlink.iccoa.normalLinkReadiness
@@ -214,6 +217,18 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         else event("Projection mode set to ${mode.name}; applies to the next connection")
     }
     private val pendingAutoPin = PendingAuthCode()
+    /** QUICK reconnect state for the current attempt only; the peer record itself lives in
+     * QuickConnectStore and survives restarts. Cleared whenever the attempt is abandoned. */
+    private val quickStore by lazy { QuickConnectStore(getApplication()) }
+    private var quickServerId: String? = null
+    private var quickPeerId: String? = null
+    private var quickPending = false
+    private var quickAttemptActive = false
+    private var quickServerInfo: ServerInfo? = null
+    private fun clearQuickState() {
+        quickPending = false; quickAttemptActive = false
+        quickServerId = null; quickPeerId = null; quickServerInfo = null
+    }
     private val autoAuthExpiry = Runnable { clearAutoAuth("Automatic AUTH expired before connecting") }
     private fun clearAutoAuth(reason: String? = null) {
         prepareHandler.removeCallbacks(autoAuthExpiry)
@@ -265,7 +280,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             } else event("GATT inspection: ${result.stage}; ${result.error ?: "no detail"}")
         }
     }
-    fun prepareConnection(peerId: String, readOnly: Boolean = false) {
+    fun prepareConnection(peerId: String, readOnly: Boolean = false, skipQuick: Boolean = false) {
         if (discovery.observedBleDevice(peerId) == null) { event("Receiver unavailable; search again"); return }
         cancelPrepared(); discovery.stop(); gatt.cancel(); bootstrap.reset()
         attemptNumber++; event("Local attempt #$attemptNumber; mode=${if (readOnly) "READ_ONLY_NO_PIN" else "NORMAL_CLIENT_INFO"}")
@@ -289,27 +304,103 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 mutableCodeReadiness.value = CodeReadiness.BLOCKED
                 mutableConnectionNotice.value = message; event(message); network.stop("Local requirement unavailable")
             } else {
-                prepared = Prepared(peerId, local)
-                val anonymous = local.platformAddress.disclosure == AddressDisclosure.ANDROID_ANONYMIZED
-                mutableCodeReadiness.value = if (anonymous) CodeReadiness.ANONYMIZED_EXPERIMENT else CodeReadiness.READY
-                mutablePinRequest.value = peerId
-                mutableConnectionNotice.value = if (anonymous)
-                    ANONYMIZED_EXPERIMENT_DETAIL
-                    else "Local requirements available. Enter your receiver's code"
-                event("Local metadata: ${local.platformAddress.disclosure}; valor omitido")
-                prepareHandler.postDelayed(prepareExpiry, 60000)
+                quickServerId = try { discovery.observedBleDevice(peerId)?.address } catch (_: SecurityException) { null }
+                val record = if (!skipQuick) quickServerId?.let { quickStore.peerRecord(it) } else null
+                if (record != null && local.platformAddress.disclosure == AddressDisclosure.AVAILABLE) {
+                    // Saved key for this car: connect without the code. Any failure falls back to the dialog.
+                    quickPeerId = peerId
+                    quickPending = true
+                    mutableCodeReadiness.value = CodeReadiness.PREPARING
+                    mutableConnectionNotice.value = "Saved key found for this car; connecting without the code"
+                    event("Quick connect: saved key found for this car; trying without the code")
+                    startQuickBootstrap(peerId, local, record)
+                } else {
+                    prepared = Prepared(peerId, local)
+                    val anonymous = local.platformAddress.disclosure == AddressDisclosure.ANDROID_ANONYMIZED
+                    mutableCodeReadiness.value = if (anonymous) CodeReadiness.ANONYMIZED_EXPERIMENT else CodeReadiness.READY
+                    mutablePinRequest.value = peerId
+                    mutableConnectionNotice.value = if (anonymous)
+                        ANONYMIZED_EXPERIMENT_DETAIL
+                        else "Local requirements available. Enter your receiver's code"
+                    event("Local metadata: ${local.platformAddress.disclosure}; valor omitido")
+                    prepareHandler.postDelayed(prepareExpiry, 60000)
+                }
             }
         }
     }
     fun cancelPrepared(reason: String = "Code entry cancelled") {
         prepareHandler.removeCallbacks(prepareExpiry)
         autoAuthDefault = false
+        clearQuickState()
         val existed = prepared != null
         val hadDialog = mutablePinRequest.value != null
         val wasPreparing = mutableCodeReadiness.value == CodeReadiness.PREPARING
         prepared = null; mutablePinRequest.value = null; mutableCodeReadiness.value = CodeReadiness.IDLE
         if (existed || hadDialog) network.stop(reason)
         if (existed || wasPreparing) { mutableConnectionNotice.value = reason; event(reason) }
+    }
+    /** QUICK reconnect: the BLE exchange carries the stored authentication token instead of a PIN,
+     * exactly as Xiaomi's client does; the TCP AUTH that follows proves the stored key. */
+    private fun startQuickBootstrap(peerId: String, local: LocalP2p, record: QuickConnectStore.PeerRecord) {
+        val peer = discovery.observedBleDevice(peerId)
+        if (peer == null) { fallbackToPin(peerId); return }
+        try {
+            val preferences = getApplication<Application>().getSharedPreferences("own-client", 0)
+            val id = preferences.getString("id", null) ?: java.util.UUID.randomUUID().toString().replace("-", "").take(6).also {
+                preferences.edit().putString("id", it).apply()
+            }
+            val hello = ClientInfo(id, Build.MODEL, "000000", local.platformAddress, local.supports5Ghz, false, record.authentication)
+            mutableConnectionNotice.value = "Trying saved key; waiting for the car to answer"
+            bootstrap.start(peer, hello) { info ->
+                quickServerInfo = info
+                mutableConnectionNotice.value = "BLE response received; network ${info.mode}; port=${info.portStatus}; quick authentication pending"
+                event("ServerInfo received for quick connect; requesting network ${info.mode}; port=${info.portStatus}; range=${info.portRange}")
+                network.connect(info)
+            }
+        } catch (_: IllegalArgumentException) {
+            fallbackToPin(peerId)
+        }
+    }
+    /** Quick connect did not work out; ask for the code exactly as before. The P2P group is torn down
+     * first so the retry prepares from the same state as a fresh attempt. */
+    private fun fallbackToPin(peerId: String) {
+        clearQuickState()
+        event("Quick connect unavailable; asking for the code")
+        network.stop("Quick connect failed; asking for the code")
+        prepareConnection(peerId, skipQuick = true)
+    }
+    /** Starts the QUICK AUTH once the P2P group is up. Any problem here falls back to the code dialog. */
+    private fun startQuickAuth() {
+        val peerId = quickPeerId
+        val serverId = quickServerId
+        if (peerId == null || serverId == null) {
+            clearQuickState()
+            event("Quick connect unavailable; asking for the code")
+            if (peerId != null) fallbackToPin(peerId)
+            return
+        }
+        val record = quickStore.peerRecord(serverId)
+        val keyPair = quickStore.authKeyPair(serverId)
+        val preferences = getApplication<Application>().getSharedPreferences("own-client", 0)
+        val id = preferences.getString("id", null)
+        if (record == null || keyPair == null || id == null) {
+            fallbackToPin(peerId)
+            return
+        }
+        if (network.authExchange.value.busy || network.authProbe.value.busy) {
+            // Another check owns the AUTH channel; leave it alone. The saved key stays for next time.
+            clearQuickState()
+            mutableConnectionNotice.value = "Quick connect skipped: another check is running"
+            event("Quick connect skipped: another authentication or port check is running")
+            return
+        }
+        try {
+            val quick = ExperimentalQuickAuth(keyPair, record.serverAuthPoint, id.toByteArray(Charsets.US_ASCII), Build.MODEL, ExperimentalAuthWire.CLIENT_WORK_MODES)
+            quickAttemptActive = true
+            network.startQuickAuthExchange(quick, id.toByteArray(Charsets.US_ASCII), Build.MODEL)
+        } catch (_: Exception) {
+            fallbackToPin(peerId)
+        }
     }
     fun submitPin(pin: String, consentToAnonymized: Boolean, automaticAuth: Boolean) {
         val request = prepared ?: return
@@ -333,6 +424,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         prepared = null; mutablePinRequest.value = null; mutableCodeReadiness.value = CodeReadiness.IDLE
         val peer = discovery.observedBleDevice(request.peerId)
         if (peer == null || disclosure == AddressDisclosure.UNAVAILABLE) { network.stop(); return }
+        quickServerId = try { peer.address } catch (_: SecurityException) { null }
         try {
             val preferences = getApplication<Application>().getSharedPreferences("own-client", 0)
             val id = preferences.getString("id", null) ?: java.util.UUID.randomUUID().toString().replace("-", "").take(6).also {
@@ -349,6 +441,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 event("Automatic AUTH authorized for this attempt; waiting for P2P network; code omitted")
             }
             bootstrap.start(peer, hello) { info ->
+                quickServerInfo = info
                 mutableConnectionNotice.value = "BLE response received; network ${info.mode}; port=${info.portStatus}; authentication pending"
                 event("ServerInfo received after ClientInfo; requesting network ${info.mode}; port=${info.portStatus}; range=${info.portRange}")
                 network.connect(info)
@@ -380,7 +473,17 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         val preferences = getApplication<Application>().getSharedPreferences("own-client", 0)
         val id = preferences.getString("id", null)
         if (id == null) { pin.fill(0); event("No local identity for the attempt; AUTH request not started"); return }
-        network.startAuthExchange(pin, id.toByteArray(Charsets.US_ASCII), Build.MODEL)
+        // A normal AUTH with the stored key lets the next connection skip the code. Without a stored
+        // key, or when the Keystore fails, this behaves exactly as before.
+        val serverId = quickServerId
+        val persistentPair = serverId?.let { quickStore.authKeyPair(it) }
+        val serverInfo = quickServerInfo
+        network.startAuthExchange(pin, id.toByteArray(Charsets.US_ASCII), Build.MODEL,
+            persistentAuthPair = persistentPair,
+            onVerifiedPeer = if (serverId != null && persistentPair != null) { peerPoint ->
+                quickStore.savePeerRecord(serverId, peerPoint, serverInfo?.authentication, serverInfo?.mac)
+                prepareHandler.post { event("Saved key stored for this car; the next connection can skip the code") }
+            } else null)
     }
     fun export(): String = buildString {
         appendLine("AionLink Open 0.41.0-research")
@@ -432,6 +535,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (own panel, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
         appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}")
+        appendLine("Quick connect: saved keys=${quickStore.peerCount()}")
         appendLine("Chosen image quality: ${if (projection.quality.high.value) "HIGH (car screen resolution)" else "COMPATIBLE (1280x720)"}")
         appendLine("Video: ${video.stage}; ${video.detail}; units=${video.accessUnits}; RTP datagrams=${video.datagrams}; capture ready=${ProjectionService.projection != null}; frames/s=${video.fps}; slow writes=${video.slowWrites}")
         val captured = ProjectionService.observation.value
@@ -456,11 +560,29 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             event("BLE exchange: ${it.stage}; ${it.message}")
             if (it.stage in setOf(org.aionlink.bluetooth.BootstrapStage.ERROR, org.aionlink.bluetooth.BootstrapStage.CANCELLED) && bootstrap.state.value == it) {
                 clearAutoAuth("Automatic AUTH cancelled because the BLE exchange ended")
+                if (quickPending) {
+                    val peerId = quickPeerId
+                    clearQuickState()
+                    if (peerId != null) fallbackToPin(peerId)
+                }
                 if (network.state.value.stage == NetworkStage.READY) network.stop()
             }
         } }
         viewModelScope.launch { network.state.collect {
             event("Network: ${it.stage}; ${it.message}")
+            if (network.state.value == it && quickPending) {
+                if (it.stage == NetworkStage.CONNECTED && it.mode == org.aionlink.iccoa.NetworkMode.P2P) {
+                    quickPending = false
+                    event("P2P network ready; starting quick reconnect for attempt #$attemptNumber")
+                    startQuickAuth()
+                } else if (it.stage in setOf(NetworkStage.ERROR, NetworkStage.CANCELLED) ||
+                    (it.stage == NetworkStage.CONNECTED && it.mode != org.aionlink.iccoa.NetworkMode.P2P)) {
+                    val peerId = quickPeerId
+                    clearQuickState()
+                    if (peerId != null) fallbackToPin(peerId)
+                    else event("Quick connect cancelled: P2P network unavailable")
+                }
+            }
             if (network.state.value == it && pendingAutoPin.pending) {
                 if (it.stage == NetworkStage.CONNECTED && it.mode == org.aionlink.iccoa.NetworkMode.P2P) {
                     val pin = pendingAutoPin.take() ?: return@collect
@@ -484,6 +606,34 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         } }
         viewModelScope.launch { network.authExchange.collect {
             event("Experimental AUTH request: ${it.stage}; ${it.detail}; session not confirmed")
+            if (quickAttemptActive && it.stage == org.aionlink.wifi.AuthProbeStage.FINISHED) {
+                quickAttemptActive = false
+                if (!it.detail.contains("QUICK_RESPONSE_VERIFIED")) {
+                    val peerId = quickPeerId
+                    val serverId = quickServerId
+                    val rejected = it.detail.contains("QUICK_RESPONSE_REJECTED_TRY_PIN") ||
+                        it.detail.contains("QUICK_RESPONSE_SERVER_ERROR") ||
+                        it.detail.contains("QUICK_RESPONSE_BAD_SIGNATURE")
+                    if (rejected && serverId != null) {
+                        quickStore.deletePeerRecord(serverId); quickStore.deleteAuthKey(serverId)
+                        event("Quick connect rejected by the car; saved key removed")
+                    } else {
+                        event("Quick connect did not succeed; asking for the code")
+                    }
+                    clearQuickState()
+                    if (peerId != null) fallbackToPin(peerId)
+                } else {
+                    val serverId = quickServerId
+                    val info = quickServerInfo
+                    if (serverId != null && info?.authentication != null) {
+                        quickStore.peerRecord(serverId)?.let { record ->
+                            quickStore.savePeerRecord(serverId, record.serverAuthPoint, info.authentication, info.mac)
+                        }
+                    }
+                    clearQuickState()
+                    event("Quick connect succeeded; no code needed")
+                }
+            }
         } }
         viewModelScope.launch { discovery.devices.collect { devices ->
         if (devices.isNotEmpty() && session.state.value in setOf(ConnectionState.DISCOVERING, ConnectionState.DEVICE_FOUND)) session.deviceFound()

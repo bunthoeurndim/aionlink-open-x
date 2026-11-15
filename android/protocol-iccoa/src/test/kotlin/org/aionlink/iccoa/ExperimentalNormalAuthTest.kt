@@ -62,4 +62,12 @@ class ExperimentalNormalAuthTest {
                 attempt.verify(ExperimentalAuthWire.Response(1793, null, null, null, null, null, 0, 1)))
         }
     }
+    @Test fun persistentPairSendsStoredPublicKeyAsAuthPoint() {
+        val generator = KeyPairGenerator.getInstance("EC").apply { initialize(ECGenParameterSpec("secp256r1")) }
+        val stored = generator.generateKeyPair()
+        ExperimentalNormalAuth("123456".toByteArray(), "own-id".toByteArray(), "test-phone", 1, stored).use { attempt ->
+            val request = attempt.request()
+            assertArrayEquals(point(stored.public as ECPublicKey), request.authPoint)
+        }
+    }
 }
