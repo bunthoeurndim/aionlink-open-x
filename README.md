@@ -39,6 +39,12 @@ side of that protocol with public Android APIs and brings to the car:
 - **The phone screen** (mirror mode), with touch and sound.
 - **An own panel** with a clock, music, and Maps or Waze directions, also with
   the screen off.
+- **Quick reconnect**: after the first pairing, later connections skip the
+  code — the phone keeps a stored key for the car and proves it instead of
+  asking for a PIN.
+- **Car watch and mode picker**: the app watches in the background for the
+  car and notifies when it is near; the home screen picks the projection
+  mode (Mirror, Dashboard, or Lite) for the next connection.
 
 ```text
 Galaxy S25 Ultra                                              GAC AION i60
@@ -71,10 +77,13 @@ owner report. The detail with hashes and dates is in
 | Feature | Status | Evidence |
 |---|---|---|
 | ICCOA session: BLE, Wi-Fi Direct, AUTH, CONTROL, RTSP | ✅ Works | On the AION since 0.25 |
-| Mirror 1920x960 at 30 fps with AAC audio and touch | ✅ Works | On the AION with 0.34: 11 Mbps, 31 fps, 6175 AAC frames, 351/351 touches |
-| Android Auto via OpenHeadunit Lite (video, audio, reconnection) | ✅ Works | On the phone (0.42): 24–28 fps, real audio, 5/5 reconnections; the owner reports it works |
+| Mirror 1920x960 at 30 fps with AAC audio | ✅ Works | On the AION with 0.34: 11 Mbps, 31 fps, 6175 AAC frames; sound reaches the car, and the phone is not muted |
+| Mirror touch | 🟡 Partial | Video and audio work, but the owner reports touch mostly does not work: taps outside the middle strip are dropped when the phone is portrait, and the "Car touch" accessibility service must be on |
+| Android Auto via OpenHeadunit Lite (video, audio, reconnection) | ✅ Works | On the phone (0.42): 24–28 fps, real audio, 5/5 reconnections; connected in the car on 2026-11-15 |
 | Android Auto with the screen off | ✅ Works | On the phone: stable 20 fps with the screen off |
-| Android Auto touch in the car | 🟡 Implemented | Pending car diagnosis |
+| Android Auto touch in the car | 🟡 Implemented | The car declares a 1920x972 touch frame; Lite now logs every bridge touch (OPENHU tag) so a tap test shows where taps die; awaiting that test |
+| Quick reconnect without the code (QUICK) | 🧪 Experimental | Implemented 2026-11-16; needs a car test: first connection saves the key, the second should skip the code; any failure falls back to the PIN dialog |
+| Car watch and projection mode picker | 🟡 Implemented | Code complete 2026-11-16; watch notification and mode picker untested in the car; boot resume on Android 17 unproven |
 | Own panel with the screen off | 🟡 Implemented | Encoding measured 10 min on the phone |
 | Wired USB/AOA connection | 🧪 Experimental | No authentication with the AION |
 
@@ -87,7 +96,8 @@ are research builds (`-research`).
 
 1. **AionLink Probe** (`org.aionlink.open.lab`), built from this repository.
 2. **OpenHeadunit Lite** (`org.aionlink.headunit.lite`), built from the `main`
-   branch of the [Open Headunit fork](https://github.com/codepdbh/open-headunit).
+   branch of [our Open Headunit fork](https://github.com/bunthoeurndim/open-headunit),
+   which carries the AionLink surface bridge and touch tracing.
 3. **Both signed with the same key.** The bridge between them uses the
    `signature` permission
    `org.aionlink.headunit.lite.permission.AIONLINK_SURFACE`; with different
@@ -118,8 +128,35 @@ configure.
 
 1. With the car **parked**, open CarLink on the car screen.
 2. In AionLink Probe tap **Find my car** and then **Connect** next to the receiver.
-3. Enter the code the car shows.
+3. Enter the code the car shows (first pairing only — later connections skip
+   it; see [Reconnecting without the code](#reconnecting-without-the-code-quick)).
 4. Android Auto appears on the car screen. You can turn off the phone screen.
+
+In mirror mode, tap **Prepare screen and audio capture** before connecting,
+or the car closes the session about 10 s in.
+
+### Reconnecting without the code (QUICK)
+
+The first connection with a code creates a long-term key for the car on the
+phone and stores the car's key. From the second connection on, the app
+connects without showing the code dialog. If the car rejects the saved key,
+the app deletes it and asks for the code exactly as before — the fallback is
+the normal flow, not an error. The diagnostics export shows how many saved
+keys the phone holds (`Quick connect: saved keys=N`). Whether the Aion
+receiver accepts a saved key from a third-party client is still unproven in
+the car; that is what the next test decides.
+
+### Car watch and projection mode
+
+- **Car watch** (Advanced options → Automatic connection): the app watches in
+  the background for the car's ICCOA advertisement and notifies when it is
+  near. Tapping the notification opens the app, prepares the connection, and
+  opens the code dialog with automatic AUTH pre-checked. The watch resumes
+  after a disconnect and after the phone restarts.
+- **Projection mode** (home screen): Mirror, Dashboard, or Lite is the
+  default for the next connection (Lite is the default). Switching mode in
+  the middle of a session stops only the video stream; the new mode applies
+  when the car next sends PLAY, with no new PIN.
 
 Mirror and panel modes, image quality, car-free tests, the USB connection, and
 diagnostics export are under **Advanced options and diagnostics**.
@@ -140,8 +177,9 @@ minSdk 29, compile/target SDK 35.
 GitHub Actions also builds both debug APKs automatically on every push and
 pull request (`.github/workflows/build-apk.yml`): it runs the Python and JVM
 unit tests, then builds AionLink Open and AionLink Probe and uploads both
-APKs as the `aionlink-debug-apks` artifact. No signing secrets are needed
-for these debug builds.
+APKs as the `aionlink-debug-apks` artifact. These builds are signed with the
+shared key (see below), so they install over the apps already on the phone;
+the workflow verifies both APKs carry that key.
 
 ### AionLink Probe
 
@@ -161,15 +199,22 @@ lint and copies the APK to `artifacts/builds/`.
 **Shared signing.** So that APKs from different PCs update the same installed
 app, create `android/keystore.properties` (never committed to Git) with
 `storeFile`, `storePassword`, `keyAlias`, and `keyPassword`. Use that same key
-for OpenHeadunit Lite.
+for OpenHeadunit Lite. The GitHub builds use the same key from repository
+secrets (`ANDROID_KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`,
+`KEY_PASSWORD`); keep a copy of the keystore and its passwords — losing them
+means uninstalling before any update.
 
 ### OpenHeadunit Lite
 
 ```powershell
-git clone https://github.com/codepdbh/open-headunit.git
+git clone https://github.com/bunthoeurndim/open-headunit.git
 cd open-headunit
 ./gradlew.bat :app:assembleLiteDebug
 ```
+
+GitHub Actions also builds and re-signs Lite on every push to `main`
+(`.github/workflows/build-lite-apk.yml`) and uploads the
+`openheadunit-lite-apk` artifact.
 
 The `lite` variant lives in `app/src/lite/` of the fork. The same change is
 saved here as a patch:
@@ -188,6 +233,9 @@ An edition of [Open Headunit](https://github.com/andreknieriem/open-headunit)
   virtual display or system privileges.
 - **Fast reconnection**: on reconnecting it forces a full frame and the picture
   returns in ~1.6 s.
+- **Touch tracing**: every bridge touch is logged (log tag `OPENHU`), so a tap
+  test in the car shows whether a tap was dropped at the gate, rejected by the
+  mapper, or delivered to Android Auto.
 - **Lighter**: arm64-v8a only, Spanish and English, with no launcher,
   navigation, or USB features.
 
@@ -248,10 +296,13 @@ See [tool usage](docs/troubleshooting/TOOLS.md) and the
 - [x] Own panel and encoding with the screen off.
 - [x] Android Auto via OpenHeadunit Lite, with audio and reconnection.
 - [x] Simplified screens and own icon (0.42).
-- [ ] Archived Android Auto diagnosis on the AION: picture, audio, and touch.
+- [x] Signed build to install without compiling (shared key, GitHub Actions).
+- [ ] Android Auto touch diagnosis on the AION (picture and audio verified;
+  touch pending a tap test with the Lite touch log).
+- [ ] Quick reconnect without the code: verify in the car (second connection
+  skips the code).
 - [ ] Measure consumption and stability on long trips.
 - [ ] Full wired connection.
-- [ ] Signed build to install without compiling.
 
 ## Documentation
 

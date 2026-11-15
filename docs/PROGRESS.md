@@ -2540,6 +2540,37 @@ y audio aceptados, H.264 19-25 unidades/s, AAC ~47 tramas/s, 0 cierres. APK Sond
 `7e3c2e8744c1ea93ced857aa6fe1369354fc811d88ee3c2ab3277cf8e39c7b03`. Sonda: tests,
 assembleDebug y lintDebug correctos; Lite: assembleLiteDebug y lintLiteDebug
 correctos.
+## Clave de firma compartida y compilación en GitHub Actions - 2026-11-15
+
+Diagnóstico con logcat (2026-11-15, 15:16): con la fuente en Android Auto, la
+sesión ICCOA llega hasta vídeo 1920x960p30 y audio AAC puente, pero el enlace
+al servicio de superficie de Lite falla (`not found`) y el coche cierra la
+sesión a los ~10 s (`GO_ENDING_SESSION`). OpenHeadunit Lite no está instalada
+en el teléfono. Bloqueador mayor: el puente exige ambas apps firmadas con la
+misma clave, y la AionLink instalada (APK inglesa del workflow run #4) se
+firmó con una clave debug efímera del runner, ya perdida.
+
+Clave compartida creada (propiedad de la usuaria): keystore RSA 2048, alias
+`aionlink`, válido hasta 2054-04-02, SHA-256 del certificado
+`F9:B2:C3:D4:2E:70:E5:84:2E:3F:90:BD:20:EE:4F:54:AB:C4:BA:EE:93:2F:96:9A:82:10:EA:43:D1:96:38:72`.
+Guardado fuera del repo; `android/keystore.properties` (gitignored) ya existe
+para la compilación local. La compilación local no funciona en este entorno:
+el proxy de salida rompe el túnel HTTP de Java (`HttpURLConnection`), así que
+el SDK (platform-tools 37.0.3, platforms 35/36 r02, build-tools 35.0.0/36.0.0)
+y Gradle (8.13 y 8.14.4) se instalaron a mano con curl, y después Gradle
+falla en la IPC de su daemon ("Could not receive a message from the daemon",
+confirmado tras limpiar el registro del daemon; el TCP de loopback sí
+funciona). Ruta adoptada: GitHub Actions.
+
+Pendiente: crear el fork `bunthoeurndim/open-headunit`, añadir los cuatro
+secretos (`ANDROID_KEYSTORE_BASE64`, `KEYSTORE_PASSWORD`, `KEY_ALIAS`,
+`KEY_PASSWORD`) a ambos repos, aplicar el `build-apk.yml` actualizado (firma
+con la clave compartida y verifica los certificados) y el nuevo
+`build-lite-apk.yml` (compila `:app:assembleLiteDebug` y re-firma con
+apksigner), ejecutar ambos workflows y comprobar que los certificados
+coinciden con el SHA-256 anterior. Después: desinstalar la AionLink actual,
+instalar primero la Lite y después la AionLink nueva, iniciar el servidor de
+unidad principal de Android Auto y reconectar al coche.
 
 ## Conexión casi automática y selector de modo (2026-11-15)
 
@@ -2596,3 +2627,25 @@ cliente no oficial (posible lista de proveedores), el papel exacto del campo
 vuelve al código). Prueba decisiva: conectar una vez con el código tras instalar
 y comprobar que la segunda conexión no pide el código; el registro de eventos
 dirá si QUICK tuvo éxito o por qué volvió al código.
+
+## README coherentes con el trabajo propio (2026-11-16)
+
+README de AionLink (inglés en `english-ui`, español en `main`) y de Lite
+actualizados para describir el estado real tras las rondas del 15 y 16 de
+noviembre, en lugar del estado de 0.42: reconexión rápida QUICK (primera
+conexión con código, las siguientes sin código, con respaldo al PIN),
+vigilancia del coche y selector de modo (Espejo/Panel/Lite, Lite por
+defecto), registro de toques de Lite (etiqueta OPENHU), aviso de preparar la
+captura en modo espejo antes de conectar, y firma compartida real (las
+compilaciones de GitHub Actions van firmadas con la clave compartida y se
+instalan encima; la frase «no se necesitan secretos de firma» era falsa).
+Tabla de estado corregida: el toque en espejo pasa de «Funciona» a parcial
+(el propietario informa que casi no funciona) y el toque de Android Auto
+recoge el marco táctil 1920x972 y el registro de Lite. La ruta de desarrollo
+marca hecha la versión firmada y añade la verificación de QUICK en el coche.
+El aviso del fork de Lite ya no dice que nada está verificado: proyección
+con pantalla apagada, audio y reconexión se verificaron en el AION el
+2026-11-15; solo el toque sigue en diagnóstico.
+`docs/AIONLINK_SURFACE_BRIDGE.md` actualizado en el mismo sentido. De paso,
+la entrada de la clave de firma compartida (2026-11-15) que solo estaba en
+`main` se añadió a `english-ui`: ambos PROGRESS.md vuelven a ser idénticos.
