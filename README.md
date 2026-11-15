@@ -184,8 +184,8 @@ the workflow verifies both APKs carry that key.
 ### AionLink Probe
 
 ```powershell
-git clone https://github.com/codepdbh/aionlink-open.git
-cd aionlink-open\android
+git clone https://github.com/bunthoeurndim/aionopen_link_mrB.git
+cd aionopen_link_mrB\android
 $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 ./gradlew.bat testDebugUnitTest :app:assembleDebug :app:lintDebug -PaionlinkLab
