@@ -207,7 +207,7 @@ class WfdSource(
                 respond(output, seq, emptyList())
                 if (message.body.contains("wfd_idr_request")) onIdrRequest()
             }
-            "TEARDOWN" -> { respond(output, seq, emptyList()); publish("TEARDOWN"); onStop("TEARDOWN"); close() }
+            "TEARDOWN" -> { publish("TEARDOWN"); respond(output, seq, emptyList()); onStop("TEARDOWN"); close() }
             "GET_PARAMETER", "PAUSE" -> respond(output, seq, emptyList())
             else -> respond(output, seq, emptyList(), 405, "Method Not Allowed")
         }
