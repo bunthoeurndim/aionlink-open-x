@@ -1,0 +1,204 @@
+package org.aionlink.wifi
+
+import org.aionlink.iccoa.ExperimentalAuthCrypto
+import org.aionlink.iccoa.UCarFrameReader
+import org.aionlink.iccoa.UCarFrameWriter
+import java.io.DataInputStream
+import java.io.EOFException
+import java.io.IOException
+import java.io.OutputStream
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.net.ServerSocket
+import java.net.Socket
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+
+data class ControlChannelStatus(
+    val stage: String = "IDLE", val received: Int = 0, val heartbeatsReceived: Int = 0,
+    val heartbeatsSent: Int = 0, val acksSent: Int = 0, val lastMethods: List<Int> = emptyList(),
+    val decryptFailures: Int = 0, val carConfig: String = "sin respuesta"
+)
+
+/** Header of a frame received from the car; the payload stays inside the channel. */
+data class CarFrame(val category: Int, val method: Int, val messageType: Int)
+
+/**
+ * Phone-side CONTROL listener observed in Samsung (r5/f.java: SocketChannel(CONTROL, server=true, encrypted=true),
+ * bound to the phone's group address on port 57219). Headers are clear; bodies use the AUTH session envelope.
+ * Sends the observed 2 s heartbeat (method 1), an empty BluetoothMacInfo (method 22, SEND_SYNC) on connect and one
+ * GetUCarConfigRequest (method 24, REQ, as in Samsung lb/g.d), acknowledges SEND_SYNC frames and answers the
+ * fusion cast app requests with [CarAppMessages]. Payloads are never exported, except the allowlisted fields of
+ * [CarConfigSummary].
+ */
+class SessionControlServer(
+    private val local: InetAddress, sessionKey: ByteArray, private val port: Int = PORT,
+    /** false = passive encrypted listener (Samsung MEDIA 57229 / SENSOR 57239 server channels): ACK only. */
+    private val active: Boolean = true,
+    private val onFrame: (CarFrame) -> Unit = {},
+    private val onSent: (String) -> Unit = {},
+    private val onStatus: (ControlChannelStatus) -> Unit
+) : AutoCloseable {
+    companion object {
+        const val PORT = 57219
+        const val MEDIA_PORT = 57229
+        const val SENSOR_PORT = 57239
+        const val METHOD_HEARTBEAT = 1
+        const val METHOD_CAR_TO_FOREGROUND = 4
+        const val METHOD_CAR_TO_BACKGROUND = 5
+        const val METHOD_DISCONNECT = 23
+        const val METHOD_GET_CONFIG_REQUEST = 24
+        const val METHOD_GET_CONFIG_RESPONSE = 25
+        const val METHOD_GET_APP_LIST_REQUEST = 26
+        const val METHOD_GET_APP_LIST_RESPONSE = 27
+        const val METHOD_GET_APP_DETAIL_REQUEST = 28
+        const val METHOD_GET_APP_DETAIL_RESPONSE = 29
+        const val METHOD_INVOKE_APP = 30
+        const val METHOD_APP_STATE_CHANGED = 31
+
+        /** UCarControlProtocol names in MiAuto, matching xa/s in Samsung; for diagnostics only. */
+        private val METHOD_NAMES = listOf("heartbeat", "get_port_request", "get_port_response", "notify_car_to_foreground",
+            "notify_car_to_background", "notify_microphone_state", "notify_mirror_state", "notify_audio_player_state",
+            "notify_phone_state", "notify_music_info", "notify_navigation_info", "custom_key_event", "vr_cmd_to_phone",
+            "notify_call_hung_up", "notify_switch_day_or_night", "awaken_voice_assistant", "audio_player_control",
+            "notify_add_camera", "notify_remove_camera", "set_camera_state", "camera_state", "bluetooth_mac_info",
+            "disconnect", "get_ucar_config_request", "get_ucar_config_response", "get_app_list_request",
+            "get_app_list_response", "get_app_detail_info_request", "get_app_detail_info_response", "invoke_app",
+            "app_state_changed", "app_list_changed", "poi_address", "call_info", "pick_up_call")
+
+        fun methodName(method: Int): String = if (method == 0) "ack" else METHOD_NAMES.getOrNull(method - 1) ?: "desconocido"
+    }
+    private val key = sessionKey.copyOf().also { sessionKey.fill(0) }
+    private val sequence = AtomicLong(1)
+    private val received = AtomicInteger(); private val heartbeatsIn = AtomicInteger()
+    private val heartbeatsOut = AtomicInteger(); private val acks = AtomicInteger(); private val failures = AtomicInteger()
+    private val methods = java.util.Collections.synchronizedList(mutableListOf<Int>())
+    @Volatile private var server: ServerSocket? = null
+    @Volatile private var client: Socket? = null
+    @Volatile private var closed = false
+    @Volatile private var stage = "IDLE"
+    @Volatile private var carConfig = "sin respuesta"
+
+    private fun publish(next: String? = null) {
+        if (next != null) stage = next
+        onStatus(ControlChannelStatus(stage, received.get(), heartbeatsIn.get(), heartbeatsOut.get(), acks.get(),
+            synchronized(methods) { methods.takeLast(8) }, failures.get(), carConfig))
+    }
+
+    /** Binds synchronously so the listener exists before AuthConfirm is sent. */
+    fun start() {
+        val socket = ServerSocket()
+        socket.reuseAddress = true
+        socket.bind(InetSocketAddress(local, port), 1)
+        server = socket
+        publish("LISTENING")
+        Thread({ acceptLoop(socket) }, "AionLink-control").apply { isDaemon = true; start() }
+    }
+
+    val boundPort: Int get() = server?.localPort ?: -1
+
+    private fun acceptLoop(listener: ServerSocket) {
+        try {
+            listener.soTimeout = 30000
+            val peer = listener.accept()
+            client = peer
+            peer.tcpNoDelay = true; peer.keepAlive = true
+            publish("CONNECTED")
+            val output = peer.getOutputStream()
+            if (active) {
+                // Samsung r5/f.onConnect: BluetoothMacInfo{op=ADD(0), mac=""} when no adapter address is available.
+                send(output, UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_PB3, UCarFrameWriter.TYPE_SEND_SYNC), 22, ByteArray(0))
+                Thread({ heartbeatLoop(output) }, "AionLink-control-heartbeat").apply { isDaemon = true; start() }
+            }
+            readLoop(DataInputStream(peer.getInputStream()), output)
+        } catch (_: java.net.SocketTimeoutException) { if (!closed) publish("NO_CONNECTION_30S") }
+        catch (_: EOFException) { if (!closed) publish("CLOSED_BY_RECEIVER") }
+        catch (_: IOException) { if (!closed) publish("IO_FAILURE") }
+        catch (_: IllegalArgumentException) { if (!closed) publish("INVALID_FRAME") }
+        finally { close() }
+    }
+
+    private fun readLoop(input: DataInputStream, output: OutputStream) {
+        val header = ByteArray(UCarFrameReader.HEADER_BYTES)
+        while (!closed) {
+            input.readFully(header)
+            val parsed = UCarFrameReader.header(header, 1 shl 20)
+            val body = ByteArray(parsed.totalBytes - UCarFrameReader.HEADER_BYTES)
+            input.readFully(body)
+            received.incrementAndGet()
+            synchronized(methods) { methods += parsed.category * 1000 + parsed.method }
+            // Proto3 omits defaults, so InvokeApp{id=0, START, displayMode=0} legitimately arrives with an empty body.
+            val plain = if (body.isEmpty()) ByteArray(0) else try { ExperimentalAuthCrypto.sessionOpen(key, body) }
+                catch (_: Exception) { failures.incrementAndGet(); null }
+            body.fill(0)
+            val control = parsed.category == UCarFrameWriter.CATEGORY_CONTROL
+            if (control && parsed.method == METHOD_GET_CONFIG_RESPONSE && plain != null) carConfig = CarConfigSummary.of(plain)
+            if (control && parsed.method == METHOD_HEARTBEAT) heartbeatsIn.incrementAndGet()
+            if (parsed.messageType == UCarFrameWriter.TYPE_SEND_SYNC) {
+                // SocketChannel.onMessage → UCarMessage.obtainAckMessage(seq): RAW, RES, category ACK, method 0.
+                val ack = UCarFrameWriter.frame(UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_RAW, UCarFrameWriter.TYPE_RES),
+                    UCarFrameWriter.CATEGORY_ACK, 0, ByteArray(0), parsed.sequence, System.currentTimeMillis() / 1000)
+                synchronized(output) { output.write(ack); output.flush() }
+                acks.incrementAndGet()
+            }
+            if (active && control && plain != null) answerCarApp(parsed.method, parsed.messageType, parsed.sequence, plain, output)
+            plain?.fill(0)
+            publish()
+            onFrame(CarFrame(parsed.category, parsed.method, parsed.messageType))
+        }
+    }
+
+    /** Requests MiAuto's ControlManager sends in fusion cast. Its getAppList/getAppDetailInfo time out after 3 s. */
+    private fun answerCarApp(method: Int, type: Int, sequence: Long, plain: ByteArray, output: OutputStream) {
+        val pbResponse = UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_PB3, UCarFrameWriter.TYPE_RES)
+        when {
+            method == METHOD_GET_APP_LIST_REQUEST && type == UCarFrameWriter.TYPE_REQ ->
+                send(output, pbResponse, METHOD_GET_APP_LIST_RESPONSE, CarAppMessages.appList(), sequence)
+            method == METHOD_GET_APP_DETAIL_REQUEST && type == UCarFrameWriter.TYPE_REQ ->
+                send(output, pbResponse, METHOD_GET_APP_DETAIL_RESPONSE, CarAppMessages.appDetail(), sequence)
+            // UCarAdapter.startApp pauses the cast unless STARTED or RESUMED arrives within 3 s. The car's parser only
+            // accepts SEND_SYNC here and acknowledges it, so a later ACK shows that its handler took the message.
+            method == METHOD_INVOKE_APP -> CarAppMessages.appState(plain)?.let {
+                val fields = mutableListOf<String>()
+                ProtoScan.walk(it, onVarint = { field, value -> fields += "$field=$value" })
+                send(output, UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_PB3, UCarFrameWriter.TYPE_SEND_SYNC), METHOD_APP_STATE_CHANGED, it)
+                onSent("app_state_changed; tipo=3; campos=$fields")
+            }
+        }
+    }
+
+    private fun heartbeatLoop(output: OutputStream) {
+        var configRequested = false
+        try {
+            while (!closed) {
+                // Heartbeat{timestamp(1) = epoch milliseconds}, CONTROL method 1, PB3 SEND.
+                send(output, UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_PB3, UCarFrameWriter.TYPE_SEND), METHOD_HEARTBEAT,
+                    UCarFrameWriter.varintField(1, System.currentTimeMillis()))
+                heartbeatsOut.incrementAndGet(); publish()
+                if (!configRequested) {
+                    configRequested = true
+                    send(output, UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_PB3, UCarFrameWriter.TYPE_REQ), METHOD_GET_CONFIG_REQUEST, ByteArray(0))
+                }
+                Thread.sleep(2000)
+            }
+        } catch (_: IOException) { } catch (_: InterruptedException) { }
+    }
+
+    /** A response passes the request's sequence, as UCarMessage.updateSeqId does; other frames take the next one. */
+    private fun send(output: OutputStream, flags: Int, method: Int, plain: ByteArray, responseTo: Long? = null) {
+        val body = if (plain.isEmpty()) plain else ExperimentalAuthCrypto.sessionSeal(key, plain)
+        val seq = responseTo ?: sequence.getAndIncrement().let { if (it > 0x7fffffffL) { sequence.set(2); 1L } else it }
+        val frame = UCarFrameWriter.frame(flags, UCarFrameWriter.CATEGORY_CONTROL, method, body, seq, System.currentTimeMillis() / 1000)
+        synchronized(output) { output.write(frame); output.flush() }
+        plain.fill(0)
+    }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        try { client?.close() } catch (_: IOException) { }
+        try { server?.close() } catch (_: IOException) { }
+        key.fill(0)
+        if (stage in setOf("LISTENING", "CONNECTED")) publish("CLOSED")
+    }
+}
