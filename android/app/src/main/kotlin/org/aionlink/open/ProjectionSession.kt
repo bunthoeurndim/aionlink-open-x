@@ -354,6 +354,14 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         }
     }
 
+    /** Stop only the video stream (encoder / car display / bridge), keeping the CONTROL, RTSP and UIBC
+     * listeners and the session alive. Used when the owner switches projection mode mid-session: the new
+     * mode is read fresh when the car next sends PLAY. Does not need a new PIN. */
+    fun restartStreamForModeSwitch() {
+        stopStream("MODE_SWITCH")
+        event("Projection mode changed; the picture restarts when the car asks for video again")
+    }
+
     fun stop(reason: String?) {
         stopStream(reason ?: "NUEVA_SESION")
         controlServer?.close(); controlServer = null

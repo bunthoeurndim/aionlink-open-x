@@ -2540,3 +2540,22 @@ y audio aceptados, H.264 19-25 unidades/s, AAC ~47 tramas/s, 0 cierres. APK Sond
 `7e3c2e8744c1ea93ced857aa6fe1369354fc811d88ee3c2ab3277cf8e39c7b03`. Sonda: tests,
 assembleDebug y lintDebug correctos; Lite: assembleLiteDebug y lintLiteDebug
 correctos.
+
+## Conexión casi automática y selector de modo (2026-11-15)
+
+Casi automática: `AutoConnectService` (primer plano, tipo connectedDevice) escucha el
+anuncio ICCOA en ventanas de 15 s con 45 s de descanso y avisa una vez cada 10 minutos
+como máximo cuando detecta el coche. Al tocar la notificación, la app busca y prepara
+la conexión sola y el diálogo del código abre con la autenticación automática ya
+marcada; el código de 6 dígitos se sigue escribiendo a mano y no se guarda. La
+vigilancia se activa en opciones avanzadas (pide el permiso de notificaciones), se
+reanuda al arrancar el teléfono (`AutoConnectBootReceiver`) y se reanuda al
+desconectar si sigue activada. Sin verificar en hardware: el rearranque tras el
+reinicio en Android 17 y el consumo en segundo plano.
+
+Selector de modo: `VideoQuality.mode()` unifica espejo/panel/Lite en una sola opción
+(persistida como `car_mode` + `external_headunit`), visible en la pantalla principal.
+Antes de PLAY se aplica al vídeo que viene; en mitad de la sesión detiene solo el
+flujo (`restartStreamForModeSwitch`, sin cerrar la sesión ni pedir otro PIN) y el
+nuevo modo se aplica cuando el coche vuelva a enviar PLAY. Sin verificar en hardware:
+si el coche no reenvía PLAY, la imagen queda parada hasta reconectar.

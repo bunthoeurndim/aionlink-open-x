@@ -188,6 +188,31 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private class Prepared(val peerId: String, val local: LocalP2p)
     private var prepared: Prepared? = null
     private var attemptNumber = 0
+    /** Set when the owner taps the car-found notification: the next ICCOA candidate is prepared
+     * automatically and the code dialog opens with automatic AUTH pre-checked. */
+    var autoConnectPending = false
+    var autoAuthDefault = false
+    fun onAutoConnectIntent() {
+        if (projection.active || mutablePinRequest.value != null) return
+        autoConnectPending = true
+        autoAuthDefault = true
+        if (discovery.hasPermissions()) scan()
+        else {
+            autoConnectPending = false
+            autoAuthDefault = false
+            event("Bluetooth permissions missing; find the car manually")
+        }
+    }
+
+    /** One choice for the projection mode. Before PLAY it applies to the upcoming video; while streaming
+     * it stops the picture and the new mode applies when the car next sends PLAY. Never needs a new PIN. */
+    fun switchProjectionMode(mode: ProjectionMode) {
+        if (projection.quality.mode() == mode) return
+        val wasActive = projection.active
+        projection.quality.setMode(mode)
+        if (wasActive) projection.restartStreamForModeSwitch()
+        else event("Projection mode set to ${mode.name}; applies to the next connection")
+    }
     private val pendingAutoPin = PendingAuthCode()
     private val autoAuthExpiry = Runnable { clearAutoAuth("Automatic AUTH expired before connecting") }
     private fun clearAutoAuth(reason: String? = null) {
@@ -209,6 +234,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
     fun consumeExport() = exportCapture.consume()
     fun scan(iccoaOnly: Boolean = true) {
+        AutoConnectService.stop(getApplication())
         clearAutoAuth("Automatic AUTH cancelled by new search"); cancelPrepared(); gatt.cancel(); bootstrap.cancel("New search"); network.stop("New search")
         discovery.stop()
         session.startDiscovery(); event("Modo: ${if (iccoaOnly) "ICCOA FCFB" else "general Classic/BLE"}"); event("Bluetooth discovery requested by the user")
@@ -217,7 +243,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             else { session.discoveryFinished(); event("UUID candidates: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}"); event("Discovery finished: ${discovery.devices.value.size} observations") }
         }
     }
-    fun stop() { stopAll("Stopped by the user") }
+    fun stop() {
+        stopAll("Stopped by the user")
+        if (projection.quality.autoWatch.value) AutoConnectService.start(getApplication())
+    }
     private fun stopAll(reason: String) {
         prepareHandler.removeCallbacks(backgroundExpiry)
         clearAutoAuth("Automatic AUTH cancelled: $reason")
@@ -274,6 +303,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
     fun cancelPrepared(reason: String = "Code entry cancelled") {
         prepareHandler.removeCallbacks(prepareExpiry)
+        autoAuthDefault = false
         val existed = prepared != null
         val hadDialog = mutablePinRequest.value != null
         val wasPreparing = mutableCodeReadiness.value == CodeReadiness.PREPARING
@@ -283,6 +313,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
     fun submitPin(pin: String, consentToAnonymized: Boolean, automaticAuth: Boolean) {
         val request = prepared ?: return
+        AutoConnectService.stop(getApplication())
+        autoAuthDefault = false
         // Without capture the car receives no video and closes the session after about 10 s, showing an error.
         if (automaticAuth && !ProjectionService.captureReady && !projection.quality.carMode.value) {
             cancelPrepared(if (displayProbe != null || VirtualProbeService.running.value)
@@ -327,7 +359,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             event(mutableConnectionNotice.value)
         }
     }
-    fun resumed() { prepareHandler.removeCallbacks(backgroundExpiry) }
+    fun resumed() {
+        prepareHandler.removeCallbacks(backgroundExpiry)
+        projection.quality.refreshAutoWatch()
+    }
     fun background() {
         if (projection.active) {
             discovery.stop(); gatt.cancel(); usb.stop()
@@ -396,6 +431,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         val video = projection.stream.value
         appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (own panel, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
+        appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}")
         appendLine("Chosen image quality: ${if (projection.quality.high.value) "HIGH (car screen resolution)" else "COMPATIBLE (1280x720)"}")
         appendLine("Video: ${video.stage}; ${video.detail}; units=${video.accessUnits}; RTP datagrams=${video.datagrams}; capture ready=${ProjectionService.projection != null}; frames/s=${video.fps}; slow writes=${video.slowWrites}")
         val captured = ProjectionService.observation.value
@@ -451,6 +487,15 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         } }
         viewModelScope.launch { discovery.devices.collect { devices ->
         if (devices.isNotEmpty() && session.state.value in setOf(ConnectionState.DISCOVERING, ConnectionState.DEVICE_FOUND)) session.deviceFound()
+        if (autoConnectPending && session.state.value in setOf(ConnectionState.DISCOVERING, ConnectionState.DEVICE_FOUND) &&
+            mutablePinRequest.value == null && prepared == null) {
+            val candidate = devices.firstOrNull { it.recognizedServices.isNotEmpty() }
+            if (candidate != null) {
+                autoConnectPending = false
+                event("Car found by the background watch; preparing the connection")
+                prepareConnection(candidate.id)
+            }
+        }
     } } }
     override fun onCleared() { stopHeadunitPreview(); stopOwnDisplayProbe(); VirtualProbeService.onReport = null; stopAll("ViewModel finished"); usb.close(); ProjectionService.stop(getApplication()) }
 }
@@ -461,9 +506,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         diagnostics = ViewModelProvider(this)[DiagnosticsViewModel::class.java]
         setContent { AionLinkTheme { AionLinkScreen(diagnostics) } }
+        if (intent?.action == AutoConnectService.ACTION_AUTO_CONNECT) diagnostics.onAutoConnectIntent()
     }
     override fun onResume() { super.onResume(); if (::diagnostics.isInitialized) diagnostics.let { it.resumed(); it.usb.refresh() } }
-    override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); setIntent(intent); diagnostics.usb.refresh() }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent); setIntent(intent); diagnostics.usb.refresh()
+        if (intent.action == AutoConnectService.ACTION_AUTO_CONNECT) diagnostics.onAutoConnectIntent()
+    }
     override fun onStop() { if (::diagnostics.isInitialized) diagnostics.background(); super.onStop() }
 }
 
@@ -491,6 +540,7 @@ class MainActivity : ComponentActivity() {
     val highQuality by model.projection.quality.high.collectAsStateWithLifecycle()
     val carMode by model.projection.quality.carMode.collectAsStateWithLifecycle()
     val externalHeadunit by model.projection.quality.externalHeadunit.collectAsStateWithLifecycle()
+    val autoWatch by model.projection.quality.autoWatch.collectAsStateWithLifecycle()
     val headunitPreview by model.headunitPreview.collectAsStateWithLifecycle()
     val forceLandscape by model.savings.landscape.collectAsStateWithLifecycle()
     val captureObservation by ProjectionService.observation.collectAsStateWithLifecycle()
@@ -529,6 +579,10 @@ class MainActivity : ComponentActivity() {
         if (model.discovery.hasPermissions()) model.scan(requestedIccoaOnly) else model.denied()
     }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) { model.projection.quality.setAutoWatch(true); AutoConnectService.start(context) }
+        else model.event("Notifications denied; the car watch cannot alert you")
+    }
     val export = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
         val frozen = model.consumeExport()
         if (uri != null && frozen == null) {
@@ -561,7 +615,7 @@ class MainActivity : ComponentActivity() {
     }, onDismiss = { showCaptureGuide = false })
     pendingConnect?.let {
         ConnectionCodeDialog(codeReadiness, connectionNotice, onSubmit = model::submitPin,
-            onClose = { model.cancelPrepared() })
+            onClose = { model.cancelPrepared() }, autoAuthDefault = model.autoAuthDefault)
     }
     pendingRead?.let { peerId ->
         AlertDialog(onDismissRequest = { pendingRead = null },
@@ -631,6 +685,21 @@ class MainActivity : ComponentActivity() {
             HomeHeader(appName, version)
             StatusCard(status, busy = connecting || scanning)
             if (setup.any { !it.done }) SetupCard(setup)
+            Text("Projection mode", style = MaterialTheme.typography.titleMedium)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                val currentMode = when {
+                    !carMode -> ProjectionMode.MIRROR
+                    externalHeadunit -> ProjectionMode.LITE
+                    else -> ProjectionMode.DASHBOARD
+                }
+                listOf(ProjectionMode.MIRROR to "Mirror", ProjectionMode.DASHBOARD to "Dashboard", ProjectionMode.LITE to "Lite").forEach { (mode, label) ->
+                    if (mode == currentMode) Button(onClick = { }, modifier = Modifier.weight(1f)) { Text(label) }
+                    else OutlinedButton(onClick = { model.switchProjectionMode(mode) }, modifier = Modifier.weight(1f)) { Text(label) }
+                }
+            }
+            Text("Mirror shows the phone screen; Dashboard is AionLink's panel; Lite is Android Auto. " +
+                "This is the default for the next connection; while connected it switches the picture.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             if (streaming || connecting) {
                 Button(onClick = model::stop, modifier = Modifier.fillMaxWidth().height(56.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) { Text("Disconnect") }
@@ -661,6 +730,18 @@ class MainActivity : ComponentActivity() {
                 Button(onClick = { pendingAuthExchange = true }, enabled = !authProbe.busy && !authExchange.busy) { Text("Try experimental AUTH") }
                 OutlinedButton(onClick = { pendingAuthProbe = true }, enabled = !authProbe.busy && !authExchange.busy) { Text("Only check port (no authentication)") }
             }
+            Text("Automatic connection", style = MaterialTheme.typography.titleLarge)
+            OutlinedButton(onClick = {
+                if (!autoWatch) {
+                    if (android.os.Build.VERSION.SDK_INT >= 33 &&
+                        context.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                        notificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    } else { model.projection.quality.setAutoWatch(true); AutoConnectService.start(context) }
+                } else { model.projection.quality.setAutoWatch(false); AutoConnectService.stop(context) }
+            }, modifier = Modifier.fillMaxWidth()) {
+                Text(if (autoWatch) "Watch for my car: ON — tap to turn off" else "Watch for my car in the background: OFF")
+            }
+            Text("While on, the phone listens for the car's signal and notifies you when it is found. Tap the notification and the code box is ready; you still type the 6-digit code once, and authentication then runs by itself. Needs notifications on and uses some battery while listening.")
             Text("Projection", style = MaterialTheme.typography.titleLarge)
             OutlinedButton(onClick = { model.projection.quality.setCarMode(!carMode) }, enabled = !probeRunning,
                 modifier = Modifier.fillMaxWidth()) {

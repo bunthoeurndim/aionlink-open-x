@@ -19,10 +19,10 @@ const val ANONYMIZED_EXPERIMENT_DETAIL = "Android keeps the local address hidden
 
 /** Visible even when preflight is blocked. Entering a code never means it was transmitted. */
 @Composable
-fun ConnectionCodeDialog(readiness: CodeReadiness, detail: String, onSubmit: (String, Boolean, Boolean) -> Unit, onClose: () -> Unit) {
+fun ConnectionCodeDialog(readiness: CodeReadiness, detail: String, onSubmit: (String, Boolean, Boolean) -> Unit, onClose: () -> Unit, autoAuthDefault: Boolean = false) {
     var code by remember { mutableStateOf("") }
     var consent by remember { mutableStateOf(false) }
-    var autoAuth by remember { mutableStateOf(false) }
+    var autoAuth by remember { mutableStateOf(autoAuthDefault) }
     val experimental = readiness == CodeReadiness.ANONYMIZED_EXPERIMENT
     fun close() { code = ""; consent = false; autoAuth = false; onClose() }
     AlertDialog(onDismissRequest = ::close,

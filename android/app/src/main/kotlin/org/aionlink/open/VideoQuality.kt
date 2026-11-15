@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.asStateFlow
  * Owner's image-quality choice. HIGH encodes at the car's own screen size (sharper, more bitrate); COMPATIBLE keeps
  * the 1280x720 mode that 0.25–0.28 used in the vehicle, as a fallback if a car rejects the larger stream.
  */
+enum class ProjectionMode { MIRROR, DASHBOARD, LITE }
+
 class VideoQuality(context: Context) {
     private val preferences = context.getSharedPreferences("aionlink_video", Context.MODE_PRIVATE)
     private val mutableHigh = MutableStateFlow(preferences.getBoolean("high", true))
@@ -37,5 +39,40 @@ class VideoQuality(context: Context) {
     fun setCarMode(value: Boolean) {
         preferences.edit().putBoolean("car_mode", value).apply()
         mutableCarMode.value = value
+    }
+
+    /** The three projection modes as one choice: MIRROR is the phone screen, DASHBOARD is AionLink's own panel,
+     * LITE is Android Auto through OpenHeadunit Lite. The choice is the default for the next connection; while a
+     * session is up it also applies to the next PLAY the car sends. */
+    fun mode(): ProjectionMode = when {
+        !mutableCarMode.value -> ProjectionMode.MIRROR
+        mutableExternalHeadunit.value -> ProjectionMode.LITE
+        else -> ProjectionMode.DASHBOARD
+    }
+
+    fun setMode(mode: ProjectionMode) {
+        when (mode) {
+            ProjectionMode.MIRROR -> setCarMode(false)
+            ProjectionMode.DASHBOARD -> { setCarMode(true); setExternalHeadunit(false) }
+            ProjectionMode.LITE -> { setCarMode(true); setExternalHeadunit(true) }
+        }
+    }
+
+    /**
+     * Background car watch: while on, a foreground service listens for the car's ICCOA advertisement and notifies
+     * when the car is found, so the owner only has to type the code. Off by default; the watch needs the
+     * notification permission to be useful and costs some battery while scanning.
+     */
+    private val mutableAutoWatch = MutableStateFlow(preferences.getBoolean("auto_watch", false))
+    val autoWatch = mutableAutoWatch.asStateFlow()
+
+    fun setAutoWatch(value: Boolean) {
+        preferences.edit().putBoolean("auto_watch", value).apply()
+        mutableAutoWatch.value = value
+    }
+
+    /** Re-read the watch flag (the background service can turn it off from a notification action). */
+    fun refreshAutoWatch() {
+        mutableAutoWatch.value = preferences.getBoolean("auto_watch", false)
     }
 }
