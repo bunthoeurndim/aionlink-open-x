@@ -63,6 +63,22 @@ class P2pConnector(context: Context) {
     private var probeSocket: Socket? = null
     private var probeGeneration = 0
     private var exchangeTimeout: Runnable? = null
+    private var wifiLock: WifiManager.WifiLock? = null
+    /** Keep the Wi-Fi radio awake at full performance while the receiver's network is connected, so
+     * power-save and background scans are less likely to drop the Wi-Fi Direct link mid-session. */
+    private fun acquireWifiLock() {
+        if (wifiLock?.isHeld == true) return
+        try {
+            val lock = wifi?.createWifiLock(WifiManager.WIFI_MODE_FULL_LOW_LATENCY, "AionLink:p2p")
+            lock?.setReferenceCounted(false)
+            lock?.acquire()
+            wifiLock = lock
+        } catch (_: SecurityException) { wifiLock = null }
+    }
+    private fun releaseWifiLock() {
+        try { wifiLock?.release() } catch (_: RuntimeException) { }
+        wifiLock = null
+    }
     /** Receives the group address and a session-key copy before AuthConfirm; the receiver owns and wipes the key. */
     var onSessionAuthenticated: ((java.net.Inet4Address, ByteArray) -> Unit)? = null
     private val mutableExchange = MutableStateFlow(AuthExchangeStatus())
@@ -162,6 +178,7 @@ class P2pConnector(context: Context) {
             override fun onAvailable(network: Network) {
                 if (ticket != generation || apCallback !== this) return
                 apNetwork = network; disarm()
+                acquireWifiLock()
                 publish(NetworkStage.CONNECTED, "Android granted the requested AP network for this receiver. ICCOA authentication pending")
             }
             override fun onUnavailable() {
@@ -210,6 +227,7 @@ class P2pConnector(context: Context) {
                             !ownerAddress.isLoopbackAddress && !ownerAddress.isMulticastAddress && !interfaceName.isNullOrBlank())
                             VerifiedEndpoint(ownerAddress, interfaceName) else null
                         disarm()
+                        acquireWifiLock()
                         publish(NetworkStage.CONNECTED, "Receiver network connected. ICCOA authentication and projection pending")
                     }
                 } catch (_: SecurityException) { fail("Wi-Fi permissions revoked") }
@@ -339,6 +357,7 @@ class P2pConnector(context: Context) {
         if (mutableExchange.value.busy) mutableExchange.value = AuthExchangeStatus(AuthProbeStage.CANCELLED, "The network or attempt stopped")
         verifiedEndpoint = null
         disarm()
+        releaseWifiLock()
         val callback = apCallback; apCallback = null; apNetwork = null
         if (callback != null) try { connectivity?.unregisterNetworkCallback(callback) }
         catch (_: IllegalArgumentException) { }
