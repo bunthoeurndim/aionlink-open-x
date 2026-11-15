@@ -1,9 +1,13 @@
 name: Build AionLink APK
 
 # Builds the debug APKs for AionLink Open and AionLink Probe (lab variant)
-# on every push / pull request. No signing secrets are needed: these are
-# debug builds signed with the debug key, for testing only.
-# The release / signed build is intentionally not done here.
+# on every push / pull request.
+# Signing: the repo secrets ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD /
+# KEY_ALIAS / KEY_PASSWORD hold the shared AionLink key (the same key
+# OpenHeadunit Lite uses), so the bridge between the two apps works.
+# The secrets must be set: the signing steps run unconditionally, because
+# `secrets` cannot be used in an `if:` condition (GitHub rejects the
+# workflow file with "Unrecognized named-value: 'secrets'").
 on:
   push:
     branches: [main, english-ui]
@@ -48,6 +52,23 @@ jobs:
           yes | "$SDKMANAGER" --licenses
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
+      # Shared signing key (see android/app/build.gradle.kts: it reads
+      # android/keystore.properties when present).
+      - name: Set up shared signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > shared-signing.keystore
+          cat > keystore.properties <<EOF
+          storeFile=shared-signing.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
       - name: Run Python unit tests
         working-directory: ${{ github.workspace }}
         run: python3 -m unittest discover -s tests/unit -v
@@ -69,6 +90,14 @@ jobs:
       - name: Save AionLink Probe APK
         run: |
           cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-probe-debug.apk"
+
+      # Prints the signing certificate of both APKs; with the shared key it
+      # must be SHA-256 F9:B2:C3:D4:2E:70:E5:84:2E:3F:90:BD:20:EE:4F:54:AB:C4:BA:EE:93:2F:96:9A:82:10:EA:43:D1:96:38:72.
+      - name: Verify signatures use the shared key
+        run: |
+          APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
+          "$APKSIGNER" verify --print-certs "${{ github.workspace }}/artifacts/aionlink-open-debug.apk"
+          "$APKSIGNER" verify --print-certs "${{ github.workspace }}/artifacts/aionlink-probe-debug.apk"
 
       - name: Upload APKs
         uses: actions/upload-artifact@v4
