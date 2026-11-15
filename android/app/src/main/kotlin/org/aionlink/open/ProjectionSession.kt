@@ -29,7 +29,8 @@ import java.net.InetSocketAddress
 data class StreamStatus(val stage: String = "IDLE", val detail: String = "", val accessUnits: Long = 0,
                         val datagrams: Long = 0, val audioFrames: Long = 0, val audio: String = "IDLE",
                         val fps: Long = 0, val slowWrites: Int = 0)
-data class TouchStatus(val stage: String = "IDLE", val events: Int = 0, val injected: Int = 0, val outside: Int = 0)
+data class TouchStatus(val stage: String = "IDLE", val events: Int = 0, val injected: Int = 0, val outside: Int = 0,
+                        val frameWidth: Int = 0, val frameHeight: Int = 0)
 
 /**
  * Post-AUTH session observed in Samsung: phone-side CONTROL listener (57219), passive MEDIA (57229) and
@@ -150,13 +151,20 @@ class ProjectionSession(private val context: Context, private val savings: Phone
                 when (input) {
                     is UibcEvent.Key -> car.key(input.keyCode)
                     is UibcEvent.Touch -> input.pointers.firstOrNull()?.let { pointer ->
+                        // The car declares the frame its touch coordinates are in; record it for the
+                        // diagnostics export and hand it to the Lite bridge, which rescales from that
+                        // frame to the Android Auto display size. Fall back to the encoded frame when
+                        // the car declares none. Passing the encoded frame unconditionally used to
+                        // mis-scale taps whenever the car negotiated a smaller video mode (e.g. 1280x720).
+                        val frameWidth = input.width.takeIf { it > 0 } ?: videoWidth
+                        val frameHeight = input.height.takeIf { it > 0 } ?: videoHeight
+                        mutableTouch.value = mutableTouch.value.copy(frameWidth = input.width, frameHeight = input.height)
                         if (!car.isExternalContent()) {
                             car.touch(input.action, pointer.x.toFloat(), pointer.y.toFloat())
                             mutableTouch.value = mutableTouch.value.copy(injected = mutableTouch.value.injected + 1)
                         } else {
-                            // Android Auto via the surface bridge: coordinates are already in the encoded frame.
                             val sent = headunitBridge?.touch(input.action, input.pointers.map { it.id }.toIntArray(),
-                                input.pointers.map { it.x }.toIntArray(), input.pointers.map { it.y }.toIntArray(), videoWidth, videoHeight)
+                                input.pointers.map { it.x }.toIntArray(), input.pointers.map { it.y }.toIntArray(), frameWidth, frameHeight)
                             mutableTouch.value = if (sent == true) mutableTouch.value.copy(injected = mutableTouch.value.injected + 1)
                                 else mutableTouch.value.copy(stage = "TACTIL_PUENTE_SIN_CONEXION")
                         }

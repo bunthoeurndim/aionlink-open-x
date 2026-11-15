@@ -404,7 +404,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         appendLine("Savings: minimum brightness=${savings.enabled.value}; settings permission=${savings.canWrite}; battery: ${savings.summary()}")
         appendLine("Audio: ${video.audio}; AAC frames=${video.audioFrames}")
         val touch = projection.touch.value
-        appendLine("UIBC touch: ${touch.stage}; events=${touch.events}; applied=${touch.injected}; outside image=${touch.outside}; accessibility active=${TouchInjectionService.instance != null}; no coordinates")
+        appendLine("UIBC touch: ${touch.stage}; events=${touch.events}; applied=${touch.injected}; outside image=${touch.outside}; declared touch frame=${if (touch.frameWidth > 0 && touch.frameHeight > 0) "${touch.frameWidth}x${touch.frameHeight}" else "not declared"}; accessibility active=${TouchInjectionService.instance != null}; no coordinates")
         val cable = usb.state.value
         appendLine("USB: stage=${cable.stage}; accessories=${cable.accessories.size}; host-mode devices=${cable.hostDevices}; reported USB power=${cable.usbPower}")
         cable.accessories.forEach { appendLine("Temporary accessory=${it.id}; observed ICCOA identifier=${it.observedIccoa}; permission=${it.permission}") }
