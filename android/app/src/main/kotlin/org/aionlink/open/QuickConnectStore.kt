@@ -21,16 +21,18 @@ class QuickConnectStore(context: Context) {
         override fun toString() = "PeerRecord(redacted)"
     }
 
-    fun peerRecord(serverId: String): PeerRecord? = try {
-        val raw = preferences.getString(serverId, null) ?: return null
-        val json = JSONObject(raw)
-        if (json.optInt("v", 0) != 1) return null
-        val point = Base64.decode(json.getString("serverAuthPk"), Base64.NO_WRAP)
-        if (point.size != 64) return null
-        ExperimentalAuthCrypto.decodePublicPoint(point) // rejects a corrupt stored point
-        PeerRecord(point, json.optString("authentication", null)?.takeIf { it.isNotEmpty() },
-            json.optString("mac", null)?.takeIf { it.isNotEmpty() })
-    } catch (_: Exception) { null }
+    fun peerRecord(serverId: String): PeerRecord? {
+        return try {
+            val raw = preferences.getString(serverId, null) ?: return null
+            val json = JSONObject(raw)
+            if (json.optInt("v", 0) != 1) return null
+            val point = Base64.decode(json.getString("serverAuthPk"), Base64.NO_WRAP)
+            if (point.size != 64) return null
+            ExperimentalAuthCrypto.decodePublicPoint(point) // rejects a corrupt stored point
+            PeerRecord(point, json.optString("authentication", null)?.takeIf { it.isNotEmpty() },
+                json.optString("mac", null)?.takeIf { it.isNotEmpty() })
+        } catch (_: Exception) { null }
+    }
 
     fun savePeerRecord(serverId: String, serverAuthPoint: ByteArray, authentication: String?, mac: String?) {
         try {
