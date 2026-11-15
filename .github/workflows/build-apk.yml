@@ -31,8 +31,17 @@ jobs:
           distribution: temurin
           java-version: "21"
 
+      # android-actions/setup-android@v3 fails here: it tries to install the
+      # legacy "tools" package, which Google removed in favour of
+      # cmdline-tools. Install the exact components this build needs instead.
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKMANAGER" ]; then
+            SDKMANAGER="$(ls -d "$ANDROID_HOME"/cmdline-tools/*/bin/sdkmanager | sort -V | tail -n 1)"
+          fi
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
       - name: Run Python unit tests
         working-directory: ${{ github.workspace }}
