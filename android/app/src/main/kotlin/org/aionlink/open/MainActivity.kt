@@ -24,7 +24,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -100,46 +99,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private val mutableHeadunitPreview = MutableStateFlow(false)
     val headunitPreview = mutableHeadunitPreview.asStateFlow()
 
-    /**
-     * Android Auto's head-unit server on this phone (127.0.0.1:5277): null = not checked yet. The server
-     * stops on phone restart and Android Auto updates, and Lite cannot reach it until it is started again.
-     */
-    private val mutableHeadunitServer = MutableStateFlow<Boolean?>(null)
-    val headunitServer = mutableHeadunitServer.asStateFlow()
-
-    /** One-shot probe of the local head-unit server; cheap, and safe to call on every resume. */
-    fun checkHeadunitServer() {
-        viewModelScope.launch(Dispatchers.IO) {
-            val up = try {
-                java.net.Socket().use { it.connect(java.net.InetSocketAddress("127.0.0.1", 5277), 500) }
-                true
-            } catch (_: Exception) { false }
-            // Log each change once, so the home screen shows what the server was doing at connect time
-            // without filling the activity list on every resume.
-            if (mutableHeadunitServer.value != up) {
-                mutableHeadunitServer.value = up
-                event("Head unit server: ${if (up) "running on 127.0.0.1:5277" else "not responding on 127.0.0.1:5277"}")
-            }
-        }
-    }
-
-    /**
-     * Opens Android Auto so the owner can start its head-unit server (there is no public intent that
-     * starts the server directly): in its settings, menu ⋮ → "Start head unit server".
-     */
-    fun openAndroidAuto(context: android.content.Context): String {
-        val launch = context.packageManager.getLaunchIntentForPackage("com.google.android.projection.gearhead")
-        return try {
-            if (launch != null) {
-                context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                "Android Auto opened — in its settings, menu ⋮ → “Start head unit server”"
-            } else {
-                context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                    android.net.Uri.parse("package:com.google.android.projection.gearhead")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-                "Android Auto settings opened"
-            }
-        } catch (_: Exception) { "Could not open Android Auto" }
-    }
+    // No probe of Android Auto's head-unit server (127.0.0.1:5277) here: the build with the probe
+    // (ea2274d) was the first whose Lite handshake went silent, and the 11:32 build without it
+    // still connects. A bare TCP connect looks like it wedges the server's single-client handler,
+    // so the server is left alone; Lite itself warns when the server stops answering.
 
     /**
      * Without the car: Open Headunit on AionLink's 1920x960 virtual display, encoded into an in-memory TS/RTP sink.
@@ -757,7 +720,6 @@ class MainActivity : ComponentActivity() {
     val externalHeadunit by model.projection.quality.externalHeadunit.collectAsStateWithLifecycle()
     val autoWatch by model.projection.quality.autoWatch.collectAsStateWithLifecycle()
     val keepFullFps by model.projection.quality.keepFullFpsWhenHot.collectAsStateWithLifecycle()
-    val headunitServerUp by model.headunitServer.collectAsStateWithLifecycle()
     val headunitPreview by model.headunitPreview.collectAsStateWithLifecycle()
     val forceLandscape by model.savings.landscape.collectAsStateWithLifecycle()
     val captureObservation by ProjectionService.observation.collectAsStateWithLifecycle()
@@ -893,9 +855,6 @@ class MainActivity : ComponentActivity() {
         setup.any { !it.done } -> HomeStatus("A step is missing", "Complete the list below and come back to this screen", HomeTone.IDLE)
         else -> HomeStatus("Ready to connect", "Open CarLink in the car and tap Find my car", HomeTone.IDLE)
     }
-    LaunchedEffect(resumeTick, carMode, externalHeadunit, streaming, connecting) {
-        if (carMode && externalHeadunit && !streaming && !connecting) model.checkHeadunitServer()
-    }
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     val appName = remember { context.applicationInfo.loadLabel(context.packageManager).toString() }
     val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty().substringBefore("-") }
@@ -946,13 +905,6 @@ class MainActivity : ComponentActivity() {
                 if (carMode && externalHeadunit) Text("If Android Auto does not appear: in its settings, menu ⋮ → “Start head unit server” " +
                     "(again after updating Android Auto or restarting the phone).",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (carMode && externalHeadunit && headunitServerUp == false) {
-                    Text("Android Auto head unit server is off — start it before connecting, or Android Auto will not appear.",
-                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = { model.event(model.openAndroidAuto(context)) }, modifier = Modifier.fillMaxWidth()) {
-                        Text("Open Android Auto settings")
-                    }
-                }
             }
             TextButton(onClick = { showAdvanced = !showAdvanced }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (showAdvanced) "Hide advanced options ▴" else "Advanced options and diagnostics ▾")

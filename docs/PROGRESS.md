@@ -2819,3 +2819,29 @@ conectar.
 
 No verificado: que QUICK llegue al coche (falta la prueba tras esta
 compilación) y que reiniciar el servidor devuelva el vídeo de Android Auto.
+
+## Eliminación del sondeo del servidor de la unidad principal - 2026-11-16
+
+La propietaria probó la compilación de las ~11:32 (sin sondeo) y conecta a
+Android Auto; las dos compilaciones posteriores (con el sondeo a 127.0.0.1:5277)
+no conectan: Lite acepta la conexión TCP pero el servidor nunca responde al
+saludo VERSION ("peer_silent"), ni siquiera en la prueba local de Android
+Auto sin coche (0 unidades H.264), y ni reiniciar el servidor (Stop y Start)
+ni reiniciar el teléfono lo devuelven. El sondeo es el único cambio de esas
+dos compilaciones que toca el servidor, y se dispara en cada regreso a la
+pantalla principal, así que un servidor nuevo se atasca de nuevo al abrir la
+app. Hipótesis: una conexión TCP que se cierra sin hablar el protocolo atasca
+el manejador de un solo cliente del servidor; no está demostrada en los
+registros, pero la prueba es decisiva: esta compilación elimina el sondeo, su
+aviso y el botón de abrir Android Auto, y conserva "Recent activity". Lite ya
+avisa por sí mismo cuando el servidor deja de responder.
+
+QUICK sigue funcionando (3 de 3 sin código en la última prueba). P2P formó
+red en 0,7 s en el intento #5; un intento anterior tardó 45 s sin formarla
+mientras la prueba local de Android Auto corría a la vez: no ejecutar la
+prueba local mientras se conecta al coche. Teléfono en estado térmico 3
+(SEVERE) durante estas sesiones.
+
+No verificado: que sin el sondeo el saludo VERSION vuelva a responderse y el
+vídeo regrese; si sigue en silencio, el problema es de Android Auto y el
+siguiente paso es borrar su caché/datos.
