@@ -130,14 +130,20 @@ class AutoConnectService : Service() {
         val stop = Intent(this, AutoConnectService::class.java).setAction(ACTION_STOP_WATCH)
         val stopPending = PendingIntent.getService(this, 1, stop,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        val notification = Notification.Builder(this, CHANNEL).setContentTitle("Your car was found")
-            .setContentText("Tap to connect — the code box will be ready")
+        // The alert opens the app by itself (full-screen intent, like an incoming call) so the
+        // car connects without a tap. On Android 14+ that needs the full-screen permission; without
+        // it the alert is an ordinary notification and the owner taps to connect, as before.
+        val fullScreenAllowed = android.os.Build.VERSION.SDK_INT < 34 ||
+            manager.canUseFullScreenIntent()
+        val builder = Notification.Builder(this, CHANNEL).setContentTitle("Your car was found")
+            .setContentText(if (fullScreenAllowed) "Connecting automatically"
+                else "Tap to connect — allow full-screen alerts for AionLink in Settings for automatic opening")
             .setSmallIcon(android.R.drawable.ic_menu_search)
             .setContentIntent(openPending).setAutoCancel(true)
             .addAction(Notification.Action.Builder(null, "Stop watching", stopPending).build())
-            .build()
+        if (fullScreenAllowed) builder.setFullScreenIntent(openPending, true)
         try {
-            manager.notify(NOTIFY_ID, notification)
+            manager.notify(NOTIFY_ID, builder.build())
         } catch (_: SecurityException) {
             stopSelf()
         }

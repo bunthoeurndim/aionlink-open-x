@@ -196,12 +196,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private class Prepared(val peerId: String, val local: LocalP2p)
     private var prepared: Prepared? = null
     private var attemptNumber = 0
-    /** Set when the owner taps the car-found notification: the next ICCOA candidate is prepared
+    /** Set when the car-found alert opens the app: the next ICCOA candidate is prepared
      * automatically and the code dialog opens with automatic AUTH pre-checked. */
     var autoConnectPending = false
     var autoAuthDefault = false
     fun onAutoConnectIntent() {
-        if (projection.active || mutablePinRequest.value != null) return
+        if (projection.active || quickPending || mutablePinRequest.value != null) return
         autoConnectPending = true
         autoAuthDefault = true
         if (discovery.hasPermissions()) scan()
@@ -303,9 +303,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         attemptNumber++; event("Local attempt #$attemptNumber; mode=${if (readOnly) "READ_ONLY_NO_PIN" else "NORMAL_CLIENT_INFO"}")
         event(if (readOnly) "Read query requested: does not use a PIN" else "Local check before requesting a PIN")
         mutableConnectionNotice.value = "Checking local Wi-Fi Direct..."
+        // The code dialog opens only on the PIN path below: showing it here put the code box
+        // over a QUICK connection that needs no code, and closing it killed the live session.
         if (!readOnly) {
             mutableCodeReadiness.value = CodeReadiness.PREPARING
-            mutablePinRequest.value = peerId
         }
         network.prepare { local ->
             if (readOnly) {
@@ -350,6 +351,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
     fun cancelPrepared(reason: String = "Code entry cancelled") {
+        // A QUICK attempt in flight or a live session is not a pending code entry: closing the
+        // dialog (or a second auto-connect tap) must never tear it down. Stopping everything
+        // still works: stopAll() stops the network and the projection itself.
+        if (quickPending || projection.active) return
         prepareHandler.removeCallbacks(prepareExpiry)
         autoAuthDefault = false
         clearQuickState()

@@ -2845,3 +2845,32 @@ prueba local mientras se conecta al coche. Teléfono en estado térmico 3
 No verificado: que sin el sondeo el saludo VERSION vuelva a responderse y el
 vídeo regrese; si sigue en silencio, el problema es de Android Auto y el
 siguiente paso es borrar su caché/datos.
+
+## Diálogo del código y apertura automática por alerta - 2026-11-16
+
+La propietaria probó la conexión automática: QUICK funciona, pero el
+diálogo del código aparecía encima de la sesión y cerrarlo cortaba la
+conexión; además, la conexión automática exigía tocar la alerta.
+
+El diálogo se mostraba en todas las conexiones: `prepareConnection` ponía
+`mutablePinRequest` antes de comprobar la clave guardada, y en el camino
+QUICK nada lo quitaba nunca. Cerrarlo llamaba a `cancelPrepared()`, que
+paraba la red Wi-Fi Direct sin distinguir "esperando el código" de "sesión
+en vivo". Ahora el diálogo solo se abre en el camino con código (la rama
+PIN ya lo ponía de nuevo), y `cancelPrepared()` no toca nada si hay un
+intento QUICK en curso o una sesión activa; `onAutoConnectIntent()` también
+ignora una segunda alerta mientras QUICK está en curso. Si QUICK falla, el
+diálogo aparece entonces, como antes (la vuelta al código ya existía y está
+probada en los registros).
+
+La alerta de coche encontrado ahora abre la app por sí sola con una
+intención de pantalla completa (como una llamada entrante): permiso
+`USE_FULL_SCREEN_INTENT` en el manifiesto; en Android 14+ se comprueba
+`canUseFullScreenIntent()` y sin el permiso la alerta sigue siendo una
+notificación normal que se toca para conectar. La alerta persistente de
+vigilancia no cambia.
+
+No verificado: que el diálogo ya no aparezca en una sesión QUICK, que
+cerrarlo en una sesión con código solo cancele la preparación, y que la
+alerta abra la app por sí sola (en Android 14+ la propietaria debe permitir
+las alertas de pantalla completa para AionLink en Ajustes, si no lo están).
