@@ -2874,3 +2874,12 @@ No verificado: que el diálogo ya no aparezca en una sesión QUICK, que
 cerrarlo en una sesión con código solo cancele la preparación, y que la
 alerta abra la app por sí sola (en Android 14+ la propietaria debe permitir
 las alertas de pantalla completa para AionLink en Ajustes, si no lo están).
+
+## Seguimiento de versiones por compilación - 2026-11-16
+
+A petición de la propietaria, cada compilación lleva su versión: `versionCode`
+sube de 1 en 1 y `versionName` es `0.42.0.<código>-research` (esta es la 43:
+`0.42.0.43-research`). La pantalla principal muestra hasta el primer `-`
+(`0.42.0.43`) y el diagnóstico, el nombre completo; el flujo de trabajo
+nombra el APK a partir de esa versión, así que el archivo descargado también
+la lleva. Sin cambio de comportamiento: solo la versión.

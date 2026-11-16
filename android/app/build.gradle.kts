@@ -8,7 +8,10 @@ android {
         applicationId = if (project.hasProperty("aionlinkLab")) "org.aionlink.open.lab" else "org.aionlink.open"
         manifestPlaceholders["applicationLabel"] = if (project.hasProperty("aionlinkLab")) "AionLink Probe" else "AionLink Open"
         minSdk = 29; targetSdk = 35
-        versionCode = 42; versionName = "0.42.0-research"
+        // Build tracking: bump both on every delivered build. versionName is 0.42.0.<code>-research
+        // so the home screen (which shows up to the first "-") and the diagnostics export both
+        // carry the build number; the workflow names the APK file from this versionName.
+        versionCode = 43; versionName = "0.42.0.43-research"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Optional fixed signing key (android/keystore.properties, never committed) so every PC produces APKs that update
