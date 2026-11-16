@@ -43,6 +43,8 @@ class CarModeDisplay(
     private val context: Context, private val width: Int, private val height: Int, private val fps: Int, private val bitrate: Int,
     private val onAccessUnit: (ByteArray, Long, Boolean) -> Unit, private val onError: (String) -> Unit,
     private val externalContent: Boolean = false,
+    /** Owner override: keep every frame at SEVERE thermal state instead of drawing one in two. */
+    private val keepFullFpsWhenHot: Boolean = false,
     /** Diagnostic notes, such as thermal adjustments. */
     private val onNote: (String) -> Unit = {},
 ) : AutoCloseable {
@@ -119,6 +121,7 @@ class CarModeDisplay(
     /**
      * Android's thermal status (API 29): MODERATE lowers the bitrate to 70 %; SEVERE or worse to 50 % and, with
      * external content, draws one of every two frames (15 fps at 30). Restores both when the phone cools down.
+     * When [keepFullFpsWhenHot] is on, SEVERE still halves the bitrate but keeps every frame.
      */
     private fun watchThermal() {
         val power = context.getSystemService(PowerManager::class.java) ?: return
@@ -138,8 +141,9 @@ class CarModeDisplay(
         val target = when (step) { 2 -> bitrate / 2; 1 -> bitrate * 7 / 10; else -> bitrate }
         try { codec?.setParameters(Bundle().apply { putInt(MediaCodec.PARAMETER_KEY_VIDEO_BITRATE, target) }) }
         catch (_: IllegalStateException) { return }
-        relay?.frameDivisor = if (step == 2) 2 else 1
-        onNote("Thermal: state $status; video ${target / 1000} kbps" + if (step == 2 && relay != null) ", half frames" else "")
+        val halfFrames = step == 2 && !keepFullFpsWhenHot
+        relay?.frameDivisor = if (halfFrames) 2 else 1
+        onNote("Thermal: state $status; video ${target / 1000} kbps" + if (halfFrames && relay != null) ", half frames" else "")
     }
 
     fun requestKeyframe() {

@@ -24,6 +24,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -98,6 +99,42 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private var headunitPreviewAudio: BridgeAudio? = null
     private val mutableHeadunitPreview = MutableStateFlow(false)
     val headunitPreview = mutableHeadunitPreview.asStateFlow()
+
+    /**
+     * Android Auto's head-unit server on this phone (127.0.0.1:5277): null = not checked yet. The server
+     * stops on phone restart and Android Auto updates, and Lite cannot reach it until it is started again.
+     */
+    private val mutableHeadunitServer = MutableStateFlow<Boolean?>(null)
+    val headunitServer = mutableHeadunitServer.asStateFlow()
+
+    /** One-shot probe of the local head-unit server; cheap, and safe to call on every resume. */
+    fun checkHeadunitServer() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val up = try {
+                java.net.Socket().use { it.connect(java.net.InetSocketAddress("127.0.0.1", 5277), 500) }
+                true
+            } catch (_: Exception) { false }
+            mutableHeadunitServer.value = up
+        }
+    }
+
+    /**
+     * Opens Android Auto so the owner can start its head-unit server (there is no public intent that
+     * starts the server directly): in its settings, menu ⋮ → "Start head unit server".
+     */
+    fun openAndroidAuto(context: android.content.Context): String {
+        val launch = context.packageManager.getLaunchIntentForPackage("com.google.android.projection.gearhead")
+        return try {
+            if (launch != null) {
+                context.startActivity(launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                "Android Auto opened — in its settings, menu ⋮ → “Start head unit server”"
+            } else {
+                context.startActivity(Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    android.net.Uri.parse("package:com.google.android.projection.gearhead")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                "Android Auto settings opened"
+            }
+        } catch (_: Exception) { "Could not open Android Auto" }
+    }
 
     /**
      * Without the car: Open Headunit on AionLink's 1920x960 virtual display, encoded into an in-memory TS/RTP sink.
@@ -318,7 +355,11 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             } else {
                 quickServerId = try { discovery.observedBleDevice(peerId)?.address } catch (_: SecurityException) { null }
                 val record = if (!skipQuick) quickServerId?.let { quickStore.peerRecord(it) } else null
-                if (record != null && local.platformAddress.disclosure == AddressDisclosure.AVAILABLE) {
+                // A saved key is enough when the local P2P data is usable at all: Android 17 anonymizes
+                // the local address (02:00:00:00:00:00), so AVAILABLE is never true on this phone and the
+                // shortcut never fired. The QUICK bootstrap accepts the anonymized identity with consent,
+                // exactly like the normal exchange; UNAVAILABLE already blocks the whole connection above.
+                if (record != null && local.platformAddress.disclosure != AddressDisclosure.UNAVAILABLE) {
                     // Saved key for this car: connect without the code. Any failure falls back to the dialog.
                     quickPeerId = peerId
                     quickPending = true
@@ -498,7 +539,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             } else null)
     }
     fun export(): String = buildString {
-        appendLine("AionLink Open 0.41.0-research")
+        appendLine("AionLink Probe " + run {
+            try { getApplication<Application>().packageManager.getPackageInfo(getApplication<Application>().packageName, 0).versionName.orEmpty() }
+            catch (_: Exception) { "unknown" }
+        })
         appendLine("Snapshot UTC: ${java.time.Instant.now()}; captured before the file picker")
         appendLine("Android API ${Build.VERSION.SDK_INT}")
         appendLine("State: ${session.state.value}")
@@ -546,7 +590,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         val video = projection.stream.value
         appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (own panel, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
-        appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}")
+        appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}")
         appendLine("Quick connect: saved keys=${quickStore.peerCount()}")
         appendLine("Chosen image quality: ${if (projection.quality.high.value) "HIGH (car screen resolution)" else "COMPATIBLE (1280x720)"}")
         appendLine("Video: ${video.stage}; ${video.detail}; units=${video.accessUnits}; RTP datagrams=${video.datagrams}; capture ready=${ProjectionService.projection != null}; frames/s=${video.fps}; slow writes=${video.slowWrites}")
@@ -556,7 +600,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         appendLine("Savings: minimum brightness=${savings.enabled.value}; settings permission=${savings.canWrite}; battery: ${savings.summary()}")
         appendLine("Audio: ${video.audio}; AAC frames=${video.audioFrames}")
         val touch = projection.touch.value
-        appendLine("UIBC touch: ${touch.stage}; events=${touch.events}; keys=${touch.keys}; applied=${touch.injected}; outside image=${touch.outside}; declared touch frame=${if (touch.frameWidth > 0 && touch.frameHeight > 0) "${touch.frameWidth}x${touch.frameHeight}" else "not declared"}; accessibility active=${TouchInjectionService.instance != null}; no coordinates")
+        appendLine("UIBC touch: ${touch.stage}; events=${touch.events}; keys=${touch.keys}; car keys=${touch.customKeys}; applied=${touch.injected}; outside image=${touch.outside}; declared touch frame=${if (touch.frameWidth > 0 && touch.frameHeight > 0) "${touch.frameWidth}x${touch.frameHeight}" else "not declared"}; accessibility active=${TouchInjectionService.instance != null}; no coordinates")
         val cable = usb.state.value
         appendLine("USB: stage=${cable.stage}; accessories=${cable.accessories.size}; host-mode devices=${cable.hostDevices}; reported USB power=${cable.usbPower}")
         cable.accessories.forEach { appendLine("Temporary accessory=${it.id}; observed ICCOA identifier=${it.observedIccoa}; permission=${it.permission}") }
@@ -703,6 +747,8 @@ class MainActivity : ComponentActivity() {
     val carMode by model.projection.quality.carMode.collectAsStateWithLifecycle()
     val externalHeadunit by model.projection.quality.externalHeadunit.collectAsStateWithLifecycle()
     val autoWatch by model.projection.quality.autoWatch.collectAsStateWithLifecycle()
+    val keepFullFps by model.projection.quality.keepFullFpsWhenHot.collectAsStateWithLifecycle()
+    val headunitServerUp by model.headunitServer.collectAsStateWithLifecycle()
     val headunitPreview by model.headunitPreview.collectAsStateWithLifecycle()
     val forceLandscape by model.savings.landscape.collectAsStateWithLifecycle()
     val captureObservation by ProjectionService.observation.collectAsStateWithLifecycle()
@@ -838,6 +884,9 @@ class MainActivity : ComponentActivity() {
         setup.any { !it.done } -> HomeStatus("A step is missing", "Complete the list below and come back to this screen", HomeTone.IDLE)
         else -> HomeStatus("Ready to connect", "Open CarLink in the car and tap Find my car", HomeTone.IDLE)
     }
+    LaunchedEffect(resumeTick, carMode, externalHeadunit, streaming, connecting) {
+        if (carMode && externalHeadunit && !streaming && !connecting) model.checkHeadunitServer()
+    }
     var showAdvanced by rememberSaveable { mutableStateOf(false) }
     val appName = remember { context.applicationInfo.loadLabel(context.packageManager).toString() }
     val version = remember { context.packageManager.getPackageInfo(context.packageName, 0).versionName.orEmpty().substringBefore("-") }
@@ -881,6 +930,13 @@ class MainActivity : ComponentActivity() {
                 if (carMode && externalHeadunit) Text("If Android Auto does not appear: in its settings, menu ⋮ → “Start head unit server” " +
                     "(again after updating Android Auto or restarting the phone).",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (carMode && externalHeadunit && headunitServerUp == false) {
+                    Text("Android Auto head unit server is off — start it before connecting, or Android Auto will not appear.",
+                        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = { model.event(model.openAndroidAuto(context)) }, modifier = Modifier.fillMaxWidth()) {
+                        Text("Open Android Auto settings")
+                    }
+                }
             }
             TextButton(onClick = { showAdvanced = !showAdvanced }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (showAdvanced) "Hide advanced options ▴" else "Advanced options and diagnostics ▾")
@@ -948,6 +1004,12 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth()) {
                 Text(if (highQuality) "Image quality: HIGH (car resolution, sharper)" else "Image quality: COMPATIBLE (1280x720)")
             }
+            OutlinedButton(onClick = { model.projection.quality.setKeepFullFpsWhenHot(!keepFullFps) },
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (keepFullFps) "Hot phone: keep 30 fps (bitrate still halves)" else "Hot phone: halve frames to 15 fps")
+            }
+            Text("When the phone gets hot it halves the video bitrate; at severe heat it also drops to 15 fps. " +
+                "Keeping 30 fps is smoother but the phone runs hotter, and Android itself may still slow the encoder.")
             if (Build.VERSION.SDK_INT >= 34) {
                 OutlinedButton(onClick = { showCaptureGuide = true }, enabled = !probeRunning, modifier = Modifier.fillMaxWidth()) { Text("Share an app (experimental)") }
             }

@@ -37,6 +37,8 @@ class SessionControlServer(
     private val active: Boolean = true,
     private val onFrame: (CarFrame) -> Unit = {},
     private val onSent: (String) -> Unit = {},
+    /** Plain-language notes for the app log (never raw payloads). */
+    private val onEvent: (String) -> Unit = {},
     private val onStatus: (ControlChannelStatus) -> Unit
 ) : AutoCloseable {
     companion object {
@@ -46,6 +48,8 @@ class SessionControlServer(
         const val METHOD_HEARTBEAT = 1
         const val METHOD_CAR_TO_FOREGROUND = 4
         const val METHOD_CAR_TO_BACKGROUND = 5
+        /** The car sends its own keys here (steering wheel next/previous is the suspect). */
+        const val METHOD_CUSTOM_KEY_EVENT = 12
         const val METHOD_DISCONNECT = 23
         const val METHOD_GET_CONFIG_REQUEST = 24
         const val METHOD_GET_CONFIG_RESPONSE = 25
@@ -134,6 +138,13 @@ class SessionControlServer(
             val control = parsed.category == UCarFrameWriter.CATEGORY_CONTROL
             if (control && parsed.method == METHOD_GET_CONFIG_RESPONSE && plain != null) carConfig = CarConfigSummary.of(plain)
             if (control && parsed.method == METHOD_HEARTBEAT) heartbeatsIn.incrementAndGet()
+            if (control && parsed.method == METHOD_CUSTOM_KEY_EVENT && plain != null) {
+                // Only the small protobuf field values are logged, never the raw payload; the count
+                // reaches the diagnostics export so a wheel press can be matched to its key code.
+                val fields = mutableListOf<String>()
+                ProtoScan.walk(plain, onVarint = { field, value -> fields += "$field=$value" })
+                onEvent("Car custom key: ${fields.joinToString()}")
+            }
             if (parsed.messageType == UCarFrameWriter.TYPE_SEND_SYNC) {
                 // SocketChannel.onMessage → UCarMessage.obtainAckMessage(seq): RAW, RES, category ACK, method 0.
                 val ack = UCarFrameWriter.frame(UCarFrameWriter.flags(1, UCarFrameWriter.FORMAT_RAW, UCarFrameWriter.TYPE_RES),

@@ -2741,3 +2741,46 @@ Además: Lite ya no dice "AionLink Sonda" en ningún sitio — ahora dice
 `AIONLINK_PROBE`). Las capturas del README son ahora las de la propietaria
 (Probe en inglés; la de Lite todavía dice "Sonda" porque es anterior a esa
 compilación — queda pendiente una nueva captura de Lite tras instalarla).
+
+## Conexión rápida, 30 fps con calor, aviso del servidor y teclas del coche - 2026-11-16
+
+La propietaria envió un diagnóstico y un logcat tras cuatro intentos BLE
+fallidos (error 19 ×3, error 133 ×1: el coche corta el enlace tras ClientInfo).
+El diagnóstico también mostró que la conexión rápida nunca se intentaba y que
+el volante no llegaba como tecla UIBC. Los cuatro cambios van en una sola
+compilación, pendientes de la prueba en el coche:
+
+- Conexión rápida (QUICK) no se disparaba por un error nuestro, no del coche:
+  `prepareConnection` exigía `disclosure == AVAILABLE`, pero el teléfono
+  siempre informa ANDROID_ANONYMIZED (Android devuelve 02:00:00:00:00:00
+  como dirección P2P), así que cada conexión pedía el código y la clave
+  guardada solo se volvía a guardar. La puerta ahora es
+  `disclosure != UNAVAILABLE` (UNAVAILABLE ya bloquea toda la conexión
+  arriba); el arranque QUICK y ClientInfo aceptan la identidad anonimizada
+  con consentimiento, igual que el intercambio normal. El coche todavía no
+  ha recibido nunca una petición QUICK: si la acepta o no sigue sin probar.
+- Mantener 30 fps con calor: nuevo ajuste en opciones avanzadas
+  ("Hot phone: keep 30 fps"), apagado por defecto, guardado en
+  `aionlink_video` (`keep_full_fps_when_hot`). Con SEVERE, el bitrate sigue
+  bajando a la mitad pero `relay.frameDivisor` se queda en 1 (solo modo
+  Lite; Android puede limitar el codificador por su cuenta). El estado sale
+  en el diagnóstico ("keep 30 fps when hot: ON/OFF").
+- Aviso del servidor de la unidad principal: al abrir la pantalla con Lite
+  elegido y sin sesión, la app sondea 127.0.0.1:5277 (500 ms, en segundo
+  plano); si no responde, muestra un aviso con un botón "Open Android Auto
+  settings" que abre Android Auto (no hay intent público que arranque el
+  servidor directamente; la propietaria sigue tocando ⋮ → "Start head unit
+  server"). El aviso desaparece cuando el sondeo tiene éxito.
+- Teclas del coche: durante una sesión llegaron dos `custom_key_event`
+  (método 12) por el canal CONTROL, que `SessionControlServer` solo
+  registraba e ignoraba; por eso el contador de teclas seguía en 0. Ahora
+  se registran los campos pequeños del mensaje (nunca la carga completa) y
+  se cuentan en el diagnóstico como "car keys=N", para emparejar la
+  pulsación del volante con su código antes de conectarla a las teclas
+  multimedia.
+- La cabecera del diagnóstico decía "AionLink Open 0.41.0-research" (texto
+  fijo); ahora lee el nombre y la versión reales del paquete instalado.
+
+No verificado: la aceptación QUICK por el coche, el aviso del servidor en
+pantalla, y el código real de la tecla del volante (falta una sesión con
+pulsación y logcat).

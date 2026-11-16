@@ -71,6 +71,19 @@ class VideoQuality(context: Context) {
         mutableAutoWatch.value = value
     }
 
+    /**
+     * Keep 30 fps when the phone is hot. Off by default: at SEVERE thermal state the bitrate halves
+     * and one frame in two is drawn (15 fps). On: the bitrate still halves, but every frame is drawn.
+     * The phone runs hotter and Android itself may still throttle the encoder, so this is best-effort.
+     */
+    private val mutableKeepFullFpsWhenHot = MutableStateFlow(preferences.getBoolean("keep_full_fps_when_hot", false))
+    val keepFullFpsWhenHot = mutableKeepFullFpsWhenHot.asStateFlow()
+
+    fun setKeepFullFpsWhenHot(value: Boolean) {
+        preferences.edit().putBoolean("keep_full_fps_when_hot", value).apply()
+        mutableKeepFullFpsWhenHot.value = value
+    }
+
     /** Re-read the watch flag (the background service can turn it off from a notification action). */
     fun refreshAutoWatch() {
         mutableAutoWatch.value = preferences.getBoolean("auto_watch", false)

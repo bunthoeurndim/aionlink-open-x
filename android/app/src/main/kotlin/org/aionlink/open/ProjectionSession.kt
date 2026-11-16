@@ -34,7 +34,7 @@ data class StreamStatus(val stage: String = "IDLE", val detail: String = "", val
                         val datagrams: Long = 0, val audioFrames: Long = 0, val audio: String = "IDLE",
                         val fps: Long = 0, val slowWrites: Int = 0)
 data class TouchStatus(val stage: String = "IDLE", val events: Int = 0, val injected: Int = 0, val outside: Int = 0,
-                        val frameWidth: Int = 0, val frameHeight: Int = 0, val keys: Int = 0)
+                        val frameWidth: Int = 0, val frameHeight: Int = 0, val keys: Int = 0, val customKeys: Int = 0)
 
 /**
  * Post-AUTH session observed in Samsung: phone-side CONTROL listener (57219), passive MEDIA (57229) and
@@ -112,8 +112,11 @@ class ProjectionSession(private val context: Context, private val savings: Phone
                     // Samsung lb/g.G: disconnect → notifyDisplayError(23); foreground → resumeDisplay.
                     SessionControlServer.METHOD_DISCONNECT -> main.post { stop("COCHE_PIDIO_DESCONEXION") }
                     SessionControlServer.METHOD_CAR_TO_FOREGROUND -> { encoder?.requestKeyframe(); carDisplay?.requestKeyframe(); main.post { openLauncherOnce() } }
+                    // The car sends its own keys (steering wheel next/previous is the suspect) as CONTROL
+                    // custom_key_event, not as UIBC keys; the payload is logged in SessionControlServer.
+                    SessionControlServer.METHOD_CUSTOM_KEY_EVENT -> mutableTouch.value = mutableTouch.value.copy(customKeys = mutableTouch.value.customKeys + 1)
                 }
-            }, onSent = { event("CONTROL channel sent: $it") }, onStatus = { status ->
+            }, onSent = { event("CONTROL channel sent: $it") }, onEvent = { event(it) }, onStatus = { status ->
                 if (mutableControl.value.stage != status.stage) event("CONTROL channel: ${status.stage}")
                 if (mutableControl.value.carConfig != status.carConfig) event("Car configuration: ${status.carConfig}")
                 mutableControl.value = status
@@ -318,6 +321,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
                         CarModeDisplay(context, target.width, target.height, target.fps, carBitrate, onAccessUnit = { unit, ptsUs, key ->
                             streamer.onAccessUnit(unit, ptsUs, key); report()
                         }, onError = { error -> main.post { stopStream(error) } }, externalContent = externalHeadunit,
+                            keepFullFpsWhenHot = quality.keepFullFpsWhenHot.value,
                             onNote = { note -> event(note) }).also { car ->
                             carDisplay = car; car.start()
                             car.externalInputSurface()?.let { surface ->
