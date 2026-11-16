@@ -43,7 +43,13 @@ class AutoConnectService : Service() {
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTO_WATCH, false)
 
         fun start(context: Context) {
-            context.startForegroundService(Intent(context, AutoConnectService::class.java))
+            // Android 12+ refuses a foreground-service start from the background (for example
+            // when a session ends while the app is in the background): fail soft, the watch
+            // simply does not restart this time and the next app open retries it.
+            try {
+                context.startForegroundService(Intent(context, AutoConnectService::class.java))
+            } catch (_: RuntimeException) {
+            }
         }
 
         fun stop(context: Context) {

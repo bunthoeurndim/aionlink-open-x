@@ -2883,3 +2883,19 @@ sube de 1 en 1 y `versionName` es `0.42.0.<código>-research` (esta es la 43:
 (`0.42.0.43`) y el diagnóstico, el nombre completo; el flujo de trabajo
 nombra el APK a partir de esa versión, así que el archivo descargado también
 la lleva. Sin cambio de comportamiento: solo la versión.
+
+## La vigilancia del coche se reinicia sola - 2026-11-16
+
+La propietaria informó de que, tras instalar la compilación 43, la aplicación
+no se abría sola al lanzar CarLink en el coche: solo conectaba con la búsqueda
+manual. Causa: el servicio de vigilancia solo se iniciaba desde el interruptor
+de opciones avanzadas, tras un reinicio del teléfono o al pulsar Detener tras
+una sesión; cada búsqueda manual, cada envío de código y cada actualización de
+la aplicación lo detenían, y nada lo reiniciaba al abrir la aplicación.
+
+Ahora la vigilancia se reinicia sola: al volver a la aplicación, solo cuando no
+hay ninguna sesión ni preparación ni búsqueda en curso; al terminar cualquier
+sesión (también por cierre del coche o por caducidad en segundo plano); y tras
+una actualización de la aplicación (MY_PACKAGE_REPLACED). Un inicio rechazado
+por Android en segundo plano ya no rompe nada: se ignora y se reintenta al
+abrir la aplicación. Sin cambio en la búsqueda manual ni en la conexión.

@@ -277,7 +277,6 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
     fun stop() {
         stopAll("Stopped by the user")
-        if (projection.quality.autoWatch.value) AutoConnectService.start(getApplication())
     }
     private fun stopAll(reason: String) {
         prepareHandler.removeCallbacks(backgroundExpiry)
@@ -285,6 +284,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         cancelPrepared(reason); discovery.stop(); gatt.cancel(); bootstrap.cancel(reason); network.stop(reason)
         projection.stop(reason)
         usb.stop(); session.disconnect(); event(reason)
+        // The watch must survive a session ending for any reason (user Stop, the car closing
+        // it, background expiry): if the owner left it on, restart it so the next drive
+        // auto-connects. start() ignores a refused background start instead of crashing.
+        if (projection.quality.autoWatch.value) AutoConnectService.start(getApplication())
     }
     fun inspect(peerId: String) {
         val peer = discovery.observedBleDevice(peerId)
@@ -485,6 +488,21 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     fun resumed() {
         prepareHandler.removeCallbacks(backgroundExpiry)
         projection.quality.refreshAutoWatch()
+        resumeWatchIfIdle()
+    }
+
+    /**
+     * Restart the car watch when the app comes back and nothing is going on: after an app
+     * update, a process kill or a battery kill the service is dead and nothing else restarts
+     * it, so opening the app is the moment to bring it back. Only when idle — never during
+     * a live session, a prepared connection, a code dialog, a QUICK attempt, a manual scan
+     * or an exchange in progress — so the watch can never fight the manual flow.
+     */
+    private fun resumeWatchIfIdle() {
+        if (!projection.quality.autoWatch.value) return
+        if (projection.active || quickPending || mutablePinRequest.value != null || prepared != null ||
+            discovery.isScanning.value || operationBusy()) return
+        AutoConnectService.start(getApplication())
     }
     fun background() {
         if (projection.active) {
