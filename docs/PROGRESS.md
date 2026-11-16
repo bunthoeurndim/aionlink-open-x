@@ -2678,3 +2678,18 @@ audio Bluetooth del coche está apagado durante CarLink) y qué keyCode exacto u
 no son los códigos Android 87/88, habrá que añadir un mapeo. Prueba: pulsar
 siguiente/anterior con música en Android Auto y mirar el registro (`UIBC key` en
 AionLink, `bridge key` en OPENHU).
+
+## Solo inglés y solo Probe - 2026-11-16
+
+Decisión del propietario: el español no es su idioma y la rama `main` en español
+solo duplicaba el trabajo (cada cambio había que hacerlo dos veces, y copiar
+archivos ingleses sobre `main` rompió la compilación dos veces por los textos
+de diagnóstico en español). A partir de ahora solo se mantiene la versión
+inglesa, y solo la variante Probe: Open y Probe eran el mismo código, solo
+cambiaban el nombre de paquete y la etiqueta; Probe es la que usa el propietario
+y la que busca el checklist de Lite. La rama `english-ui` pasa a ser `main`
+(la rama española se elimina; el original español sigue en codepdbh/aionlink-open),
+así que quien clone el repo cae directamente en la versión inglesa. El workflow
+`.github/workflows/build-apk.yml` ya solo compila Probe y sube el artefacto
+`aionlink-probe-apk`. Los textos en español dentro de la app (`values-es/`) se
+conservan: no cuestan nada y la app sigue el idioma del teléfono.

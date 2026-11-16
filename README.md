@@ -175,12 +175,12 @@ diagnostics export are under **Advanced options and diagnostics**.
 Pinned versions: **Gradle 8.13**, **AGP 8.9.1**, **Kotlin and Compose 2.1.20**,
 minSdk 29, compile/target SDK 35.
 
-GitHub Actions also builds both debug APKs automatically on every push and
+GitHub Actions also builds the Probe debug APK automatically on every push and
 pull request (`.github/workflows/build-apk.yml`): it runs the Python and JVM
-unit tests, then builds AionLink Open and AionLink Probe and uploads both
-APKs as the `aionlink-debug-apks` artifact. These builds are signed with the
-shared key (see below), so they install over the apps already on the phone;
-the workflow verifies both APKs carry that key.
+unit tests, then builds AionLink Probe and uploads it as the
+`aionlink-probe-apk` artifact. The build is signed with the shared key (see
+below), so it installs over the app already on the phone; the workflow
+verifies the APK carries that key.
 
 ### AionLink Probe
 
@@ -193,9 +193,10 @@ $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-Without `-PaionlinkLab`, **AionLink Open** (`org.aionlink.open`), the main
-variant, is built. The `scripts/Build-Android.ps1` script runs the tests and
-lint and copies the APK to `artifacts/builds/`.
+Probe is the only variant: AionLink Open was the same code with a different
+package name (`org.aionlink.open`), kept only so its author could test without
+overwriting his daily app. The `scripts/Build-Android.ps1` script runs the
+tests and lint and copies the APK to `artifacts/builds/`.
 
 **Shared signing.** So that APKs from different PCs update the same installed
 app, create `android/keystore.properties` (never committed to Git) with
