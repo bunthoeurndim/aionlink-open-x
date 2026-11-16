@@ -3,8 +3,11 @@ package org.aionlink.open
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.media.AudioManager
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.view.KeyEvent
 import android.view.WindowManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +16,7 @@ import org.aionlink.iccoa.UCarFrameWriter
 import org.aionlink.projection.TsRtpStreamer
 import org.aionlink.projection.UibcEvent
 import org.aionlink.projection.UibcMapper
+import org.aionlink.projection.UibcMediaKeys
 import org.aionlink.projection.UibcServer
 import org.aionlink.projection.WfdFormats
 import org.aionlink.projection.WfdPlay
@@ -30,7 +34,7 @@ data class StreamStatus(val stage: String = "IDLE", val detail: String = "", val
                         val datagrams: Long = 0, val audioFrames: Long = 0, val audio: String = "IDLE",
                         val fps: Long = 0, val slowWrites: Int = 0)
 data class TouchStatus(val stage: String = "IDLE", val events: Int = 0, val injected: Int = 0, val outside: Int = 0,
-                        val frameWidth: Int = 0, val frameHeight: Int = 0)
+                        val frameWidth: Int = 0, val frameHeight: Int = 0, val keys: Int = 0)
 
 /**
  * Post-AUTH session observed in Samsung: phone-side CONTROL listener (57219), passive MEDIA (57229) and
@@ -146,6 +150,18 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         val counted = mutableTouch.value.copy(events = mutableTouch.value.events + 1)
         mutableTouch.value = counted
         main.post {
+            if (input is UibcEvent.Key) {
+                // The car's steering wheel sends transport controls as UIBC keys. Until now every
+                // key died here: the dashboard ignores them and the Lite bridge had no key path,
+                // so next/previous did nothing in Android Auto. Log every key: the next car test
+                // must show which key codes the wheel actually sends.
+                mutableTouch.value = mutableTouch.value.copy(keys = mutableTouch.value.keys + 1)
+                event("UIBC key: action=${input.action} keyCode=${input.keyCode}")
+                if (UibcMediaKeys.isMedia(input.keyCode)) {
+                    if (deliverMediaKey(input)) mutableTouch.value = mutableTouch.value.copy(injected = mutableTouch.value.injected + 1)
+                    return@post
+                }
+            }
             // Car mode: the encoded frame is AionLink's own display, so touches go straight to its views.
             carDisplay?.let { car ->
                 when (input) {
@@ -195,6 +211,38 @@ class ProjectionSession(private val context: Context, private val savings: Phone
                 }
             }
         }
+    }
+
+    /**
+     * Steering-wheel transport control. Lite mode: over the bridge to Android Auto, which is
+     * what a real head unit does (Lite's sendKey applies its own routing and debounce). Any
+     * other mode: straight to the phone's active media session, which is the music app in
+     * mirror mode and the dashboard's media card in car mode.
+     */
+    private fun deliverMediaKey(key: UibcEvent.Key): Boolean {
+        if (key.action != KeyEvent.ACTION_DOWN && key.action != KeyEvent.ACTION_UP) return false
+        val display = carDisplay
+        if (display != null && display.isExternalContent()) {
+            val sent = headunitBridge?.key(key.action, key.keyCode) == true
+            if (!sent) event("UIBC key ${key.keyCode}: bridge not connected")
+            return sent
+        }
+        return dispatchMediaKey(key)
+    }
+
+    private var lastMediaDownTime = 0L
+    private var lastMediaKeyCode = -1
+
+    private fun dispatchMediaKey(key: UibcEvent.Key): Boolean {
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return false
+        val now = SystemClock.uptimeMillis()
+        val downTime = when {
+            key.action == KeyEvent.ACTION_DOWN -> { lastMediaDownTime = now; lastMediaKeyCode = key.keyCode; now }
+            key.keyCode == lastMediaKeyCode && lastMediaDownTime != 0L -> lastMediaDownTime
+            else -> now
+        }
+        audio.dispatchMediaKeyEvent(KeyEvent(downTime, now, key.action, key.keyCode, 0))
+        return true
     }
 
     /** Manual fallback when the automatic start was blocked (for example, AionLink was not on screen). */

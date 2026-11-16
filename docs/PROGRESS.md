@@ -2649,3 +2649,32 @@ con pantalla apagada, audio y reconexión se verificaron en el AION el
 `docs/AIONLINK_SURFACE_BRIDGE.md` actualizado en el mismo sentido. De paso,
 la entrada de la clave de firma compartida (2026-11-15) que solo estaba en
 `main` se añadió a `english-ui`: ambos PROGRESS.md vuelven a ser idénticos.
+
+## Botones siguiente/anterior del volante en Android Auto - 2026-11-16
+
+El propietario informa de que los botones de audio siguiente/anterior del volante no
+afectan a la app de música en Android Auto (Lite). Causa en el código: el coche envía
+los controles de transporte como eventos de tecla UIBC (`UibcEvent.Key`, ya parseados
+por `UibcParser`), pero `ProjectionSession.onUibc` los entregaba a `CarModeDisplay.key`,
+que es un no-op, y el puente a Lite no tenía ningún mensaje de tecla; en modo espejo
+`TouchInjectionService.key` solo entiende atrás/inicio/recientes. Es decir, cada
+pulsación moría en silencio en los tres modos.
+
+Arreglo: mensaje nuevo 4 del puente (`HeadunitSurfaceBridge.key`,
+`AionLinkSurfaceService.handleKey`) que reenvía la tecla a Android Auto con
+`CommManager.sendKey` — la misma vía que las teclas propias de Lite, con su enrutado
+de teclas de medios (por defecto ALWAYS, así que reenvía), remapeo y antirrebote. En
+modo espejo y panel, la tecla va directa a la sesión de medios activa del teléfono
+con `AudioManager.dispatchMediaKeyEvent`. Solo se reenvían los controles de transporte
+(85 play/pausa, 86 stop, 87 siguiente, 88 anterior, 89 rebobinar, 90 adelantar, 126
+play, 127 pausa; `UibcMediaKeys`, con prueba unitaria); el resto de teclas mantiene
+su trato actual. Cada tecla UIBC queda registrada en el registro de eventos y contada
+en la exportación del diagnóstico (`teclas=N` en la línea UIBC), así que la próxima
+prueba dirá qué códigos envía realmente el volante.
+
+Sin verificar en hardware: que el coche envíe las pulsaciones del volante como teclas
+UIBC (es el único canal que tiene hacia el teléfono mientras CarLink está activo; el
+audio Bluetooth del coche está apagado durante CarLink) y qué keyCode exacto usa — si
+no son los códigos Android 87/88, habrá que añadir un mapeo. Prueba: pulsar
+siguiente/anterior con música en Android Auto y mirar el registro (`UIBC key` en
+AionLink, `bridge key` en OPENHU).

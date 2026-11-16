@@ -89,7 +89,23 @@ class HeadunitSurfaceBridge(
         } catch (_: RemoteException) { false }
     }
 
-    private companion object { const val TOUCH = 3 }
+    /**
+     * Car steering-wheel transport control for Android Auto (bridge message 4: action is a
+     * KeyEvent action, keyCode an Android key code). The receiver forwards it to Android Auto;
+     * returns false if the bridge is not connected.
+     */
+    fun key(action: Int, keyCode: Int): Boolean {
+        val target = remote ?: return false
+        return try {
+            target.send(Message.obtain(null, KEY).apply {
+                replyTo = reply
+                data = Bundle().apply { putInt("action", action); putInt("keyCode", keyCode) }
+            })
+            true
+        } catch (_: RemoteException) { false }
+    }
+
+    private companion object { const val TOUCH = 3; const val KEY = 4 }
 
     override fun close() {
         if (closed) return

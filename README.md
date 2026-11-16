@@ -82,6 +82,7 @@ owner report. The detail with hashes and dates is in
 | Android Auto via OpenHeadunit Lite (video, audio, reconnection) | ✅ Works | On the phone (0.42): 24–28 fps, real audio, 5/5 reconnections; connected in the car on 2026-11-15 |
 | Android Auto with the screen off | ✅ Works | On the phone: stable 20 fps with the screen off |
 | Android Auto touch in the car | 🟡 Implemented | The car declares a 1920x972 touch frame; Lite now logs every bridge touch (OPENHU tag) so a tap test shows where taps die; awaiting that test |
+| Steering wheel next/previous in Android Auto | 🧪 Experimental | Implemented 2026-11-16: the car's UIBC key events go over the bridge to Android Auto (mirror/dashboard: to the phone's media session); needs a car test — the log must show the wheel actually sends the presses as UIBC keys |
 | Quick reconnect without the code (QUICK) | 🧪 Experimental | Implemented 2026-11-16; needs a car test: first connection saves the key, the second should skip the code; any failure falls back to the PIN dialog |
 | Car watch and projection mode picker | 🟡 Implemented | Code complete 2026-11-16; watch notification and mode picker untested in the car; boot resume on Android 17 unproven |
 | Own panel with the screen off | 🟡 Implemented | Encoding measured 10 min on the phone |

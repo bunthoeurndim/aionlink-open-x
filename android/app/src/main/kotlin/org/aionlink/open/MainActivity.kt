@@ -544,7 +544,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         appendLine("Savings: minimum brightness=${savings.enabled.value}; settings permission=${savings.canWrite}; battery: ${savings.summary()}")
         appendLine("Audio: ${video.audio}; AAC frames=${video.audioFrames}")
         val touch = projection.touch.value
-        appendLine("UIBC touch: ${touch.stage}; events=${touch.events}; applied=${touch.injected}; outside image=${touch.outside}; declared touch frame=${if (touch.frameWidth > 0 && touch.frameHeight > 0) "${touch.frameWidth}x${touch.frameHeight}" else "not declared"}; accessibility active=${TouchInjectionService.instance != null}; no coordinates")
+        appendLine("UIBC touch: ${touch.stage}; events=${touch.events}; keys=${touch.keys}; applied=${touch.injected}; outside image=${touch.outside}; declared touch frame=${if (touch.frameWidth > 0 && touch.frameHeight > 0) "${touch.frameWidth}x${touch.frameHeight}" else "not declared"}; accessibility active=${TouchInjectionService.instance != null}; no coordinates")
         val cable = usb.state.value
         appendLine("USB: stage=${cable.stage}; accessories=${cable.accessories.size}; host-mode devices=${cable.hostDevices}; reported USB power=${cable.usbPower}")
         cable.accessories.forEach { appendLine("Temporary accessory=${it.id}; observed ICCOA identifier=${it.observedIccoa}; permission=${it.permission}") }
@@ -963,7 +963,7 @@ class MainActivity : ComponentActivity() {
                 modifier = Modifier.fillMaxWidth()) { Text("Local test (no car): virtual display with screen off, 12 min") }
             Text("Lab tests: they send NOTHING to the car. They only measure on the phone whether video keeps being generated with the screen off. To see the phone in the car, use “Prepare screen and audio capture” and connect.")
             if (probeRunning) Text("Local test in progress: the car connection is blocked until you stop it. Turn off the screen with the power button, wait, then save the diagnostics.")
-            Text("Touch: ${if (TouchInjectionService.instance != null) "service active" else "service not enabled"} • UIBC ${touchState.stage} • events ${touchState.events} • applied ${touchState.injected}")
+            Text("Touch: ${if (TouchInjectionService.instance != null) "service active" else "service not enabled"} • UIBC ${touchState.stage} • events ${touchState.events} • keys ${touchState.keys} • applied ${touchState.injected}")
             Text("CONTROL: ${controlChannel.stage} • received ${controlChannel.received} • heartbeats ${controlChannel.heartbeatsReceived}/${controlChannel.heartbeatsSent}")
             Text(auxiliary)
             Text("RTSP: ${rtspSession.stage} ${rtspSession.detail}")
