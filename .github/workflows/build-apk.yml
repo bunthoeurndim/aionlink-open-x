@@ -89,7 +89,7 @@ jobs:
       - name: Save AionLink Probe APK
         run: |
           mkdir -p "${{ github.workspace }}/artifacts"
-          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -1)
+          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
           cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-probe-${VERSION}.apk"
           ls -l "${{ github.workspace }}/artifacts"
 
@@ -98,7 +98,7 @@ jobs:
       - name: Verify signature uses the shared key
         run: |
           APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
-          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -1)
+          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
           "$APKSIGNER" verify --print-certs "${{ github.workspace }}/artifacts/aionlink-probe-${VERSION}.apk"
 
       - name: Upload APK
