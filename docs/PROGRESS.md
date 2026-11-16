@@ -2694,6 +2694,23 @@ así que quien clone el repo cae directamente en la versión inglesa. El workflo
 `aionlink-probe-apk`. Los textos en español dentro de la app (`values-es/`) se
 conservan: no cuestan nada y la app sigue el idioma del teléfono.
 
+## Descubrimiento CarLink: hay que abrir la app en el coche - 2026-11-16
+
+Prueba de la propietaria: AionLink no descubre el coche hasta que se abre la
+app ICCOA CarLink en el coche; al abrirla, siempre muestra el código de 6
+dígitos. Revisados los documentos (BLE_BOOTSTRAP_06, investigación
+Xiaomi/OPPO/vivo, proyecto MiAuto como receptor): es el comportamiento
+esperado. El coche es el que anuncia por BLE (servicio FCFB) y el anuncio
+solo existe mientras el receptor CarLink está activo; en el ADiGO del i60
+eso significa con la app abierta. El teléfono solo escanea: ninguna app
+puede hacer que el coche anuncie. MiAuto (receptor de referencia) también
+exige abrir la app una vez y reanuncia cada 30 s mientras no hay conexión.
+Que el coche muestre siempre un código tampoco obliga a teclearlo: el código
+es una oferta de emparejamiento nuevo; un teléfono recordado puede
+autenticarse con la clave guardada (QUICK). Si el i60 acepta QUICK sigue sin
+probarse — esa es la prueba pendiente: primera conexión con código, segunda
+sin código.
+
 ## Créditos y capturas en inglés - 2026-11-16
 
 La propietaria preguntó si hay que dar crédito al autor: sí. El README no
