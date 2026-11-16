@@ -114,7 +114,12 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 java.net.Socket().use { it.connect(java.net.InetSocketAddress("127.0.0.1", 5277), 500) }
                 true
             } catch (_: Exception) { false }
-            mutableHeadunitServer.value = up
+            // Log each change once, so the home screen shows what the server was doing at connect time
+            // without filling the activity list on every resume.
+            if (mutableHeadunitServer.value != up) {
+                mutableHeadunitServer.value = up
+                event("Head unit server: ${if (up) "running on 127.0.0.1:5277" else "not responding on 127.0.0.1:5277"}")
+            }
         }
     }
 
@@ -402,7 +407,10 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             val id = preferences.getString("id", null) ?: java.util.UUID.randomUUID().toString().replace("-", "").take(6).also {
                 preferences.edit().putString("id", it).apply()
             }
-            val hello = ClientInfo(id, Build.MODEL, "000000", local.platformAddress, local.supports5Ghz, false, record.authentication)
+            // The saved key only exists because the owner already consented to the anonymized experiment
+            // in the PIN connection that stored it, so QUICK reuses that consent; passing false made the
+            // ClientInfo constructor reject the anonymized identity before any BLE exchange.
+            val hello = ClientInfo(id, Build.MODEL, "000000", local.platformAddress, local.supports5Ghz, true, record.authentication)
             mutableConnectionNotice.value = "Trying saved key; waiting for the car to answer"
             bootstrap.start(peer, hello) { info ->
                 quickServerInfo = info
@@ -410,7 +418,8 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 event("ServerInfo received for quick connect; requesting network ${info.mode}; port=${info.portStatus}; range=${info.portRange}")
                 network.connect(info)
             }
-        } catch (_: IllegalArgumentException) {
+        } catch (e: IllegalArgumentException) {
+            event("Quick connect failed before contacting the car: ${e.message ?: "invalid local data"}")
             fallbackToPin(peerId)
         }
     }
@@ -895,6 +904,13 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             HomeHeader(appName, version)
             StatusCard(status, busy = connecting || scanning)
+            if (events.isNotEmpty()) {
+                Text("Recent activity", style = MaterialTheme.typography.titleMedium)
+                events.takeLast(3).reversed().forEach { line ->
+                    val shown = if (line.length > 28 && line[10] == 'T') "${line.substring(11, 19)}  ${line.substring(28)}" else line
+                    Text(shown, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             if (setup.any { !it.done }) SetupCard(setup)
             Text("Projection mode", style = MaterialTheme.typography.titleMedium)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

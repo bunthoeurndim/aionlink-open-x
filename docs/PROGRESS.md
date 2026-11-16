@@ -2784,3 +2784,38 @@ compilación, pendientes de la prueba en el coche:
 No verificado: la aceptación QUICK por el coche, el aviso del servidor en
 pantalla, y el código real de la tecla del volante (falta una sesión con
 pulsación y logcat).
+
+## Conexión rápida sin consentimiento y actividad reciente en pantalla - 2026-11-16
+
+La propietaria instaló la compilación anterior y siguió sin conectar: dos
+sesiones llegaron a vídeo pero el codificador envió 0 unidades y el coche
+cerró todo a los ~10 s, porque Lite se conectaba al servidor de la unidad
+principal (127.0.0.1:5277) y este aceptaba la conexión sin responder nunca
+al saludo VERSION ("peer_silent"). Android Auto ya era 18.0.664264 a las
+13:00, cuando funcionaba, así que no es una actualización: el proceso del
+servidor está probablemente atascado y hay que reiniciarlo (⋮ → Stop y Start
+en los ajustes de Android Auto; si no basta, reiniciar el teléfono).
+
+En esa misma prueba la puerta QUICK ya funcionaba ("saved key found; trying
+without the code"), pero el arranque moría en ~3 ms: `startQuickBootstrap`
+pasaba `consent=false` a `ClientInfo`, y `PlatformP2pAddress.forClientInfo`
+exige consentimiento para la identidad anonimizada, así que el constructor
+lanzaba IllegalArgumentException ("Local data unavailable or experiment not
+authorized") antes de ningún intercambio BLE. Ahora pasa `true`: la clave
+guardada solo existe porque la propietaria ya dio ese consentimiento en la
+conexión con código que la guardó. Si el arranque vuelve a fallar, el motivo
+queda registrado en vez de caer en silencio al diálogo del código.
+
+Actividad visible, a petición de la propietaria (se descartaron el toast,
+que desaparece mientras mira al coche, y la notificación, que llenaría el
+panel por cada paso de diagnóstico): los eventos ya existían en el registro
+y en el diagnóstico, pero solo se veían dentro de las opciones avanzadas.
+Ahora la pantalla principal muestra "Recent activity" con los 3 últimos
+(hora y texto, lo más reciente arriba); en avanzadas siguen los 20 últimos.
+El sondeo del servidor de la unidad principal también queda registrado como
+evento ("Head unit server: running / not responding on 127.0.0.1:5277"), una
+vez por cambio, para que el diagnóstico muestre qué hacía el servidor al
+conectar.
+
+No verificado: que QUICK llegue al coche (falta la prueba tras esta
+compilación) y que reiniciar el servidor devuelva el vídeo de Android Auto.
