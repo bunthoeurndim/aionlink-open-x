@@ -254,8 +254,20 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         discovery.stop()
         session.startDiscovery(); event("Modo: ${if (iccoaOnly) "ICCOA FCFB" else "general Classic/BLE"}"); event("Bluetooth discovery requested by the user")
         discovery.start(iccoaOnly) { error ->
-            if (error != null) { session.transportError(); event(error) }
-            else { session.discoveryFinished(); event("UUID candidates: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}"); event("Discovery finished: ${discovery.devices.value.size} observations") }
+            if (error != null) {
+                session.transportError(); event(error)
+                autoConnectPending = false; autoAuthDefault = false
+            } else {
+                session.discoveryFinished()
+                event("UUID candidates: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}")
+                event("Discovery finished: ${discovery.devices.value.size} observations")
+                // A tap on the car-found notification sets autoConnectPending and starts this
+                // scan; if the scan ends with no car in range, say so instead of going quiet.
+                if (autoConnectPending && discovery.devices.value.none { it.recognizedServices.isNotEmpty() }) {
+                    autoConnectPending = false; autoAuthDefault = false
+                    event("Car not found in this scan; tap Find my car to try again")
+                }
+            }
         }
     }
     fun stop() {

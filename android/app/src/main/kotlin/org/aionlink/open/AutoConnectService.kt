@@ -77,9 +77,16 @@ class AutoConnectService : Service() {
         if (!watching) {
             val manager = getSystemService(NotificationManager::class.java)
             manager.createNotificationChannel(NotificationChannel(CHANNEL_WATCH, "Car watch", NotificationManager.IMPORTANCE_LOW))
+            // The watch notification itself opens the app: without a content intent a tap
+            // on it does nothing at all, which looks like the tap is broken.
+            val openApp = PendingIntent.getActivity(this, 2,
+                Intent(this, MainActivity::class.java)
+                    .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             val watchNotification = Notification.Builder(this, CHANNEL_WATCH).setContentTitle("AionLink: watching for your car")
                 .setContentText("Listening for the car's signal; tap the alert when it is found")
-                .setSmallIcon(android.R.drawable.ic_menu_search).setOngoing(true).build()
+                .setSmallIcon(android.R.drawable.ic_menu_search).setOngoing(true)
+                .setContentIntent(openApp).build()
             try {
                 startForeground(WATCH_ID, watchNotification, ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE)
             } catch (_: RuntimeException) {

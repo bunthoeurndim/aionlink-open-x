@@ -2711,6 +2711,22 @@ autenticarse con la clave guardada (QUICK). Si el i60 acepta QUICK sigue sin
 probarse — esa es la prueba pendiente: primera conexión con código, segunda
 sin código.
 
+## Tocar la notificación no hacía nada - 2026-11-16
+
+La propietaria tocó la notificación y no pasó nada. Revisión del paso: la
+alerta "Your car was found" sí tenía acción al tocar (abre la app con
+AUTO_CONNECT, auto-prepara y abre el diálogo del código), pero la
+notificación persistente de vigilancia ("watching for your car") no tenía
+ninguna acción asignada: tocarla no hacía literalmente nada. Arreglo: la
+notificación de vigilancia ahora también abre la app. Segundo fallo en el
+mismo paso: si el escaneo que arranca el toque terminaba sin encontrar el
+coche, `autoConnectPending` quedaba activo para siempre y no aparecía ni el
+diálogo ni ningún aviso. Ahora, si el escaneo termina sin candidato, se
+limpia el estado y se avisa ("Car not found in this scan; tap Find my car to
+try again"); lo mismo si el escaneo da error. Verificado por lectura de
+`AutoConnectService.notifyCarFound`, `MainActivity.onCreate/onNewIntent`,
+`onAutoConnectIntent`, `scan()` y el colector de dispositivos.
+
 ## Créditos y capturas en inglés - 2026-11-16
 
 La propietaria preguntó si hay que dar crédito al autor: sí. El README no
