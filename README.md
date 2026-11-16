@@ -63,7 +63,7 @@ Reference vehicle: **GAC AION i60 REEV Platinum** (ADiGO unit, firmware
 Galaxy S25 Ultra** with Android 17.
 
 <p align="center">
-  <img src="docs/assets/screenshots/aionlink-sonda.png" alt="AionLink Probe home screen" width="300" />
+  <img src="docs/assets/screenshots/aionlink-probe.png" alt="AionLink Probe home screen" width="300" />
   &nbsp;&nbsp;
   <img src="docs/assets/screenshots/openheadunit-lite.png" alt="OpenHeadunit Lite screen" width="300" />
 </p>
@@ -338,6 +338,20 @@ python -m unittest discover -s tests/unit -v
 Do not attach proprietary APKs, decompiled code, keys, tokens, VINs, Bluetooth
 addresses, or screenshots with personal data. Anonymize logs before sharing
 them.
+
+## Credits
+
+AionLink Open is based on [codepdbh/aionlink-open](https://github.com/codepdbh/aionlink-open),
+the experimental ICCOA CarLink client for the GAC AION, distributed under
+GPL-3.0-or-later. This fork translates the app to English and adds: quick
+reconnect without the code, car watch and mode picker, steering-wheel media
+keys, a Wi-Fi lock for the car link, full-bitrate video in car mode, and Lite
+touch tracing support.
+
+OpenHeadunit Lite is based on [codepdbh/open-headunit](https://github.com/codepdbh/open-headunit),
+itself a variant of [Open Headunit](https://github.com/andreknieriem/open-headunit)
+by andreknieriem and mikereidis (AGPL-3.0). This fork adds the AionLink surface
+bridge, touch tracing, and bridge media keys.
 
 ## License and independence
 

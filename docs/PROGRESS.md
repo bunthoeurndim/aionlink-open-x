@@ -2693,3 +2693,18 @@ así que quien clone el repo cae directamente en la versión inglesa. El workflo
 `.github/workflows/build-apk.yml` ya solo compila Probe y sube el artefacto
 `aionlink-probe-apk`. Los textos en español dentro de la app (`values-es/`) se
 conservan: no cuestan nada y la app sigue el idioma del teléfono.
+
+## Créditos y capturas en inglés - 2026-11-16
+
+La propietaria preguntó si hay que dar crédito al autor: sí. El README no
+nombraba a codepdbh en ningún sitio (las referencias se eliminaron al corregir
+la URL de clonación). Se añadió una sección de créditos en ambos README:
+AionLink Open se basa en codepdbh/aionlink-open (GPL-3.0-or-later) y
+OpenHeadunit Lite en codepdbh/open-headunit, variante de Open Headunit de
+andreknieriem/mikereidis (AGPL-3.0). La app Lite ya acreditaba en su pie
+"Based on Open Headunit, AGPL-3.0. Source: github.com/codepdbh/open-headunit".
+Además: Lite ya no dice "AionLink Sonda" en ningún sitio — ahora dice
+"AionLink Probe" (5 textos, recurso `lite_item_probe`, constante
+`AIONLINK_PROBE`). Las capturas del README son ahora las de la propietaria
+(Probe en inglés; la de Lite todavía dice "Sonda" porque es anterior a esa
+compilación — queda pendiente una nueva captura de Lite tras instalarla).
