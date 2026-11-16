@@ -89,14 +89,17 @@ jobs:
       - name: Save AionLink Probe APK
         run: |
           mkdir -p "${{ github.workspace }}/artifacts"
-          cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-probe-debug.apk"
+          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -1)
+          cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-probe-${VERSION}.apk"
+          ls -l "${{ github.workspace }}/artifacts"
 
       # Prints the signing certificate of the APK; with the shared key it
       # must be SHA-256 F9:B2:C3:D4:2E:70:E5:84:2E:3F:90:BD:20:EE:4F:54:AB:C4:BA:EE:93:2F:96:9A:82:10:EA:43:D1:96:38:72.
       - name: Verify signature uses the shared key
         run: |
           APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
-          "$APKSIGNER" verify --print-certs "${{ github.workspace }}/artifacts/aionlink-probe-debug.apk"
+          VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' android/app/build.gradle.kts | head -1)
+          "$APKSIGNER" verify --print-certs "${{ github.workspace }}/artifacts/aionlink-probe-${VERSION}.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
