@@ -1,9 +1,12 @@
 package org.aionlink.open
 
 import android.app.Application
+import android.app.NotificationManager
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -56,7 +59,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     val events = mutableEvents.asStateFlow()
     val usb = UsbAccessoryClient(application, ::event)
     val savings = PhoneSavings(application, ::event)
-    val projection = ProjectionSession(application, savings, ::event)
+    val projection = ProjectionSession(application, savings, ::event, onSessionClosedByCar = { resumeWatchIfIdle() })
     private var displayProbe: OwnDisplayProbe? = null
     private val virtualProbeJournal = VirtualProbeJournal(application)
     private val probeEnd = Runnable { stopDisplayProbe() }
@@ -261,7 +264,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         discovery.start(iccoaOnly) { error ->
             if (error != null) {
                 session.transportError(); event(error)
+                val wasAuto = autoConnectPending
                 autoConnectPending = false; autoAuthDefault = false
+                if (wasAuto) restartWatchAfterFailedAutoScan()
             } else {
                 session.discoveryFinished()
                 event("UUID candidates: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}")
@@ -271,6 +276,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 if (autoConnectPending && discovery.devices.value.none { it.recognizedServices.isNotEmpty() }) {
                     autoConnectPending = false; autoAuthDefault = false
                     event("Car not found in this scan; tap Find my car to try again")
+                    restartWatchAfterFailedAutoScan()
                 }
             }
         }
@@ -504,6 +510,18 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             discovery.isScanning.value || operationBusy()) return
         AutoConnectService.start(getApplication())
     }
+
+    /**
+     * An auto-connect scan that found no car (or errored) must not leave the watch dead:
+     * scan() stops the service, so restart it here, and clear the 10-minute alert cooldown
+     * so the next watch window can alert again within about a minute instead of 10.
+     * Only for auto scans — a manual Find-my-car leaves the watch off until the app is
+     * reopened or a session ends, as before.
+     */
+    private fun restartWatchAfterFailedAutoScan() {
+        AutoConnectService.resetAlertCooldown(getApplication())
+        resumeWatchIfIdle()
+    }
     fun background() {
         if (projection.active) {
             discovery.stop(); gatt.cancel(); usb.stop()
@@ -586,6 +604,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (own panel, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
         appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}")
+        appendLine("Last car-found alert: ${AutoConnectService.lastAlertAt(getApplication()).let { if (it == 0L) "never" else java.time.Instant.ofEpochMilli(it).toString() }}")
         appendLine("Quick connect: saved keys=${quickStore.peerCount()}")
         appendLine("Chosen image quality: ${if (projection.quality.high.value) "HIGH (car screen resolution)" else "COMPATIBLE (1280x720)"}")
         appendLine("Video: ${video.stage}; ${video.detail}; units=${video.accessUnits}; RTP datagrams=${video.datagrams}; capture ready=${ProjectionService.projection != null}; frames/s=${video.fps}; slow writes=${video.slowWrites}")
@@ -650,8 +669,19 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 mutableCodeReadiness.value = CodeReadiness.BLOCKED
                 mutableConnectionNotice.value = it.message
             }
+            // A live session whose link just died (the car drove away, Wi-Fi dropped): the
+            // session cannot continue, so tear it down cleanly — stopAll() also restarts the
+            // watch, so the next drive auto-connects. ERROR only: a user Stop publishes
+            // CANCELLED, and stopAll() must not re-enter itself.
+            if (it.stage == NetworkStage.ERROR && projection.active && !quickPending &&
+                mutablePinRequest.value == null && prepared == null) {
+                stopAll("Network lost during the session")
+            }
         } }
-        network.onSessionAuthenticated = { local, key -> projection.onAuthenticated(local, key) }
+        // The prepared connection is consumed once the session is authenticated: it means
+        // "prepared but not started", and the watch-idle check needs it cleared so the watch
+        // can restart after a live session ends.
+        network.onSessionAuthenticated = { local, key -> prepared = null; projection.onAuthenticated(local, key) }
         viewModelScope.launch { network.authProbe.collect {
             event("TCP AUTH test: ${it.stage}; ${it.detail}; duration ms=${it.elapsedMs}; no payload or ICCOA session")
         } }
@@ -949,6 +979,28 @@ class MainActivity : ComponentActivity() {
                 } else { model.projection.quality.setAutoWatch(false); AutoConnectService.stop(context) }
             }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (autoWatch) "Watch for my car: ON — tap to turn off" else "Watch for my car in the background: OFF")
+            }
+            // The alert can only open the app by itself when full-screen alerts are allowed
+            // (Android 14+). This opens that exact setting; the button hides once allowed.
+            // A plain val, not remember: the permission can change while the app is open.
+            val fullScreenAllowed = Build.VERSION.SDK_INT < 34 ||
+                (context.getSystemService(NotificationManager::class.java)?.canUseFullScreenIntent() == true)
+            if (Build.VERSION.SDK_INT >= 34 && !fullScreenAllowed) {
+                OutlinedButton(onClick = {
+                    try {
+                        context.startActivity(Intent(
+                            Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT,
+                            Uri.parse("package:" + context.packageName)))
+                    } catch (_: Exception) {
+                        try {
+                            context.startActivity(Intent(
+                                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                Uri.parse("package:" + context.packageName)))
+                        } catch (_: Exception) { }
+                    }
+                }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Allow full-screen alerts (lets the app open by itself)")
+                }
             }
             Text("While on, the phone listens for the car's signal and notifies you when it is found. Tap the notification and the code box is ready; you still type the 6-digit code once, and authentication then runs by itself. Needs notifications on and uses some battery while listening.")
             Text("Projection", style = MaterialTheme.typography.titleLarge)

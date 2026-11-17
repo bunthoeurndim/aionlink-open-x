@@ -42,6 +42,15 @@ class AutoConnectService : Service() {
         fun enabled(context: Context): Boolean =
             context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTO_WATCH, false)
 
+        /** The last car-found alert time, for the diagnostics export. 0 means never. */
+        fun lastAlertAt(context: Context): Long =
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_LAST_NOTIFY, 0L)
+
+        /** Let the next watch window alert again: used when an auto-connect scan found no car. */
+        fun resetAlertCooldown(context: Context) {
+            context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putLong(KEY_LAST_NOTIFY, 0L).apply()
+        }
+
         fun start(context: Context) {
             // Android 12+ refuses a foreground-service start from the background (for example
             // when a session ends while the app is in the background): fail soft, the watch

@@ -2899,3 +2899,21 @@ sesión (también por cierre del coche o por caducidad en segundo plano); y tras
 una actualización de la aplicación (MY_PACKAGE_REPLACED). Un inicio rechazado
 por Android en segundo plano ya no rompe nada: se ignora y se reintenta al
 abrir la aplicación. Sin cambio en la búsqueda manual ni en la conexión.
+
+## La vigilancia sobrevive al cierre del coche y el audio sube a 256 kbps - 2026-11-17
+
+La propietaria informó de que la compilación 44 seguía sin conectar sola
+aunque el coche estaba visible. Se encontraron cuatro huecos: (1) cuando el
+coche cierra la sesión, la vigilancia no se reiniciaba — el cierre se resolvía
+dentro de la sesión de proyección sin avisar al modelo; ahora la sesión avisa
+y la vigilancia vuelve. (2) Si el enlace se cae durante una sesión, la sesión
+quedaba colgada y la vigilancia muerta; ahora ese error cierra la sesión
+limpiamente y la vigilancia vuelve. (3) Una búsqueda automática sin coche
+dejaba la vigilancia apagada y el aviso bloqueado 10 minutos; ahora esa
+búsqueda reinicia la vigilancia y libera el aviso, y el diagnóstico muestra la
+hora del último aviso. (4) En opciones avanzadas hay un botón que abre el
+ajuste exacto de alertas a pantalla completa (sin él, la aplicación nunca se
+abre sola). Además, la conexión preparada se marca como consumida al
+autenticarse, para que la vigilancia pueda reiniciarse tras una sesión. Y el
+audio AAC sube de 128 a 256 kbps: el coche escucha una segunda compresión y a
+128 kbps sonaba pobre, sobre todo los graves.

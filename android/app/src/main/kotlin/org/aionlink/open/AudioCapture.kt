@@ -74,7 +74,9 @@ class AacPump(
     fun start() {
         val aac = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, SAMPLE_RATE, CHANNELS).apply {
             setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC)
-            setInteger(MediaFormat.KEY_BIT_RATE, 128_000)
+            // 256 kbps: the car hears a second lossy generation, and 128 kbps sounded thin,
+            // especially the bass. Same codec and rate; ~128 kbps more on the link.
+            setInteger(MediaFormat.KEY_BIT_RATE, 256_000)
             setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384)
         }
         val encoder = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC)

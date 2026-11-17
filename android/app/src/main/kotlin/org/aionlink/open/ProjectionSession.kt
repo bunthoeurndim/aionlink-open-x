@@ -42,9 +42,12 @@ data class TouchStatus(val stage: String = "IDLE", val events: Int = 0, val inje
  * 15550). Video/audio come from the owner-approved MediaProjection. Status values are exported without
  * addresses, keys, coordinates or payloads.
  */
-class ProjectionSession(private val context: Context, private val savings: PhoneSavings, private val event: (String) -> Unit) {
+class ProjectionSession(private val context: Context, private val savings: PhoneSavings, private val event: (String) -> Unit,
+    private val onSessionClosedByCar: () -> Unit = {}) {
     private companion object {
         const val MAX_LOGGED_FRAMES = 40
+        /** The car asked to end the session (drive over, CarLink closed). */
+        const val CAR_REQUESTED_DISCONNECT = "COCHE_PIDIO_DESCONEXION"
         /** One frame at 30 fps is 33 ms; a TCP write this slow means the link or the car is holding the stream back. */
         const val SLOW_WRITE_MS = 50L
     }
@@ -110,7 +113,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
                     frame.category == UCarFrameWriter.CATEGORY_CONTROL && frame.method != SessionControlServer.METHOD_HEARTBEAT) logFrame("CONTROL", frame)
                 if (frame.category == UCarFrameWriter.CATEGORY_CONTROL) when (frame.method) {
                     // Samsung lb/g.G: disconnect → notifyDisplayError(23); foreground → resumeDisplay.
-                    SessionControlServer.METHOD_DISCONNECT -> main.post { stop("COCHE_PIDIO_DESCONEXION") }
+                    SessionControlServer.METHOD_DISCONNECT -> main.post { stop(CAR_REQUESTED_DISCONNECT) }
                     SessionControlServer.METHOD_CAR_TO_FOREGROUND -> { encoder?.requestKeyframe(); carDisplay?.requestKeyframe(); main.post { openLauncherOnce() } }
                     // The car sends its own keys (steering wheel next/previous is the suspect) as CONTROL
                     // custom_key_event, not as UIBC keys; the payload is logged in SessionControlServer.
@@ -423,5 +426,8 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         source?.close(); source = null
         uibcKey?.fill(0); uibcKey = null
         if (reason != null && mutableRtsp.value.stage != "IDLE") event("Projection session closed: $reason")
+        // The car ended the session (drive over, CarLink closed): the app is not involved, so
+        // this is the only place that can bring the watch back for the next drive.
+        if (reason == CAR_REQUESTED_DISCONNECT) onSessionClosedByCar()
     }
 }
