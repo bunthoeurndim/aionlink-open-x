@@ -2965,3 +2965,17 @@ recibir la 46 (AionLink Open X):
    P2P), reintentar la conexión con QUICK sin código; máximo 3 intentos con
    espera creciente (inmediato, +15 s, +45 s) y, si el coche ya no está,
    volver a la vigilancia (alerta cuando reaparezca). Sin bucles infinitos.
+
+## Reconexión automática tras una caída - build 47 (2026-11-17)
+
+Elegido por Naomi en la encuesta de progreso. Si una sesión activa se corta sin
+tocar Stop — error de red, el coche cierra la sesión (COCHE_PIDIO_DESCONEXION)
+o cae el P2P — la app reintenta sola con QUICK (sin código): máximo 3 intentos
+con espera creciente (inmediato, +15 s, +45 s); si el coche ya no está, vuelve
+a la vigilancia (alerta cuando reaparezca). Sin bucles infinitos. Cada intento
+es un auto-scan que reutiliza el camino de auto-conexión de la vigilancia
+(coche encontrado → prepareConnection, QUICK con la clave guardada). La
+vigilancia queda apagada durante el episodio y solo vuelve si la reconexión se
+rinde; si QUICK falla y aparece el diálogo del código, el episodio termina (el
+flujo manual toma el relevo); tocar Stop cancela el episodio. La exportación de
+diagnóstico muestra "Auto-reconnect: attempt N of 3 / idle".

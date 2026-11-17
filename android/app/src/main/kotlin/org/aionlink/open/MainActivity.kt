@@ -27,6 +27,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -59,7 +61,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     val events = mutableEvents.asStateFlow()
     val usb = UsbAccessoryClient(application, ::event)
     val savings = PhoneSavings(application, ::event)
-    val projection = ProjectionSession(application, savings, ::event, onSessionClosedByCar = { resumeWatchIfIdle() })
+    val projection = ProjectionSession(application, savings, ::event, onSessionClosedByCar = { onSessionClosedByCar() })
     private var displayProbe: OwnDisplayProbe? = null
     private val virtualProbeJournal = VirtualProbeJournal(application)
     private val probeEnd = Runnable { stopDisplayProbe() }
@@ -203,6 +205,16 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
      * automatically and the code dialog opens with automatic AUTH pre-checked. */
     var autoConnectPending = false
     var autoAuthDefault = false
+    /** Auto-reconnect after a drop (build 47). When a live session ends unexpectedly the app
+     * retries by itself with QUICK (no code): at most 3 attempts, waiting right away, then
+     * 15 s, then 45 s. After that it falls back to the watch. Never on a user Stop. Each
+     * attempt is an auto scan, so it reuses the watch's auto-connect path: car found →
+     * prepareConnection, QUICK when a key is saved. */
+    private var reconnecting = false
+    private var reconnectAttempts = 0
+    private var reconnectJob: Job? = null
+    private val maxReconnectAttempts = 3
+    private val reconnectDelaysMs = longArrayOf(0L, 15_000L, 45_000L)
     fun onAutoConnectIntent() {
         if (projection.active || quickPending || mutablePinRequest.value != null) return
         autoConnectPending = true
@@ -266,7 +278,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 session.transportError(); event(error)
                 val wasAuto = autoConnectPending
                 autoConnectPending = false; autoAuthDefault = false
-                if (wasAuto) restartWatchAfterFailedAutoScan()
+                if (wasAuto) onAutoScanFinished()
             } else {
                 session.discoveryFinished()
                 event("UUID candidates: ${discovery.devices.value.count { it.recognizedServices.isNotEmpty() }}")
@@ -275,16 +287,17 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 // scan; if the scan ends with no car in range, say so instead of going quiet.
                 if (autoConnectPending && discovery.devices.value.none { it.recognizedServices.isNotEmpty() }) {
                     autoConnectPending = false; autoAuthDefault = false
-                    event("Car not found in this scan; tap Find my car to try again")
-                    restartWatchAfterFailedAutoScan()
+                    if (!reconnecting) event("Car not found in this scan; tap Find my car to try again")
+                    onAutoScanFinished()
                 }
             }
         }
     }
     fun stop() {
+        cancelReconnect("stopped by the user")
         stopAll("Stopped by the user")
     }
-    private fun stopAll(reason: String) {
+    private fun stopAll(reason: String, restartWatch: Boolean = true) {
         prepareHandler.removeCallbacks(backgroundExpiry)
         clearAutoAuth("Automatic AUTH cancelled: $reason")
         cancelPrepared(reason); discovery.stop(); gatt.cancel(); bootstrap.cancel(reason); network.stop(reason)
@@ -293,7 +306,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         // The watch must survive a session ending for any reason (user Stop, the car closing
         // it, background expiry): if the owner left it on, restart it so the next drive
         // auto-connects. start() ignores a refused background start instead of crashing.
-        if (projection.quality.autoWatch.value) AutoConnectService.start(getApplication())
+        // A reconnect episode keeps the watch off while it retries; it restarts the watch
+        // itself if it gives up, so its callers pass restartWatch = false.
+        if (restartWatch && projection.quality.autoWatch.value) AutoConnectService.start(getApplication())
     }
     fun inspect(peerId: String) {
         val peer = discovery.observedBleDevice(peerId)
@@ -403,6 +418,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     /** Quick connect did not work out; ask for the code exactly as before. The P2P group is torn down
      * first so the retry prepares from the same state as a fresh attempt. */
     private fun fallbackToPin(peerId: String) {
+        // QUICK failed and the code dialog takes over: the automatic reconnect cannot
+        // continue without the owner, so the episode ends here.
+        if (reconnecting) { reconnectJob?.cancel(); reconnectJob = null; reconnecting = false; reconnectAttempts = 0 }
         clearQuickState()
         event("Quick connect unavailable; asking for the code")
         network.stop("Quick connect failed; asking for the code")
@@ -507,7 +525,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private fun resumeWatchIfIdle() {
         if (!projection.quality.autoWatch.value) return
         if (projection.active || quickPending || mutablePinRequest.value != null || prepared != null ||
-            discovery.isScanning.value || operationBusy()) return
+            discovery.isScanning.value || operationBusy() || reconnecting) return
         AutoConnectService.start(getApplication())
     }
 
@@ -521,6 +539,66 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private fun restartWatchAfterFailedAutoScan() {
         AutoConnectService.resetAlertCooldown(getApplication())
         resumeWatchIfIdle()
+    }
+
+    /** The car ended the session (drive over, CarLink closed on the car): tear the dead
+     * session down and try to reconnect automatically. The watch stays off during the
+     * episode; it restarts only if the reconnect gives up. Runs on the main thread
+     * (ProjectionSession posts the disconnect there). */
+    private fun onSessionClosedByCar() {
+        stopAll("Car closed the session", restartWatch = false)
+        scheduleReconnect("car closed the session")
+    }
+
+    /** Schedule the next automatic reconnect attempt after a drop, or give up and hand
+     * over to the watch. Called once per drop to start the episode and once per failed
+     * scan to continue it; the counter is what bounds the episode to 3 attempts. */
+    private fun scheduleReconnect(reason: String) {
+        if (!reconnecting) { reconnecting = true; reconnectAttempts = 0 }
+        if (reconnectAttempts >= maxReconnectAttempts) {
+            reconnecting = false; reconnectAttempts = 0
+            event("Auto-reconnect gave up after $maxReconnectAttempts attempts; watching for the car")
+            restartWatchAfterFailedAutoScan()
+            return
+        }
+        reconnectAttempts++
+        val delayMs = reconnectDelaysMs[reconnectAttempts - 1]
+        event("Connection dropped ($reason); reconnecting automatically, attempt $reconnectAttempts of $maxReconnectAttempts${if (delayMs > 0) " in ${delayMs / 1000} s" else ""}")
+        reconnectJob?.cancel()
+        reconnectJob = viewModelScope.launch {
+            delay(delayMs)
+            runReconnectScan()
+        }
+    }
+
+    /** One reconnect attempt: an auto scan, so the car found triggers prepareConnection
+     * (QUICK when a key is saved) through the same collector as the watch. If something
+     * else already took over — a live session, a code dialog, a manual scan — the
+     * episode ends quietly instead of fighting it. */
+    private fun runReconnectScan() {
+        if (!reconnecting) return
+        if (projection.active || quickPending || mutablePinRequest.value != null || prepared != null || discovery.isScanning.value) {
+            cancelReconnect("another connection took over")
+            return
+        }
+        autoConnectPending = true
+        autoAuthDefault = true
+        scan()
+    }
+
+    private fun cancelReconnect(reason: String) {
+        if (!reconnecting && reconnectJob == null) return
+        reconnectJob?.cancel(); reconnectJob = null
+        reconnecting = false; reconnectAttempts = 0
+        event("Auto-reconnect cancelled: $reason")
+    }
+
+    /** An auto scan finished without the car (or errored). During a reconnect episode the
+     * next attempt is scheduled instead of restarting the watch; otherwise the watch
+     * restarts as before (cooldown reset so the next window can alert again soon). */
+    private fun onAutoScanFinished() {
+        if (reconnecting) scheduleReconnect("car not found in this scan")
+        else restartWatchAfterFailedAutoScan()
     }
     fun background() {
         if (projection.active) {
@@ -605,6 +683,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
         appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}")
         appendLine("Last car-found alert: ${AutoConnectService.lastAlertAt(getApplication()).let { if (it == 0L) "never" else java.time.Instant.ofEpochMilli(it).toString() }}")
+        appendLine("Auto-reconnect: ${if (reconnecting) "attempt $reconnectAttempts of $maxReconnectAttempts after a drop" else "idle"}")
         appendLine("Quick connect: saved keys=${quickStore.peerCount()}")
         appendLine("Chosen image quality: ${if (projection.quality.high.value) "HIGH (car screen resolution)" else "COMPATIBLE (1280x720)"}")
         appendLine("Video: ${video.stage}; ${video.detail}; units=${video.accessUnits}; RTP datagrams=${video.datagrams}; capture ready=${ProjectionService.projection != null}; frames/s=${video.fps}; slow writes=${video.slowWrites}")
@@ -670,18 +749,29 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 mutableConnectionNotice.value = it.message
             }
             // A live session whose link just died (the car drove away, Wi-Fi dropped): the
-            // session cannot continue, so tear it down cleanly — stopAll() also restarts the
-            // watch, so the next drive auto-connects. ERROR only: a user Stop publishes
-            // CANCELLED, and stopAll() must not re-enter itself.
+            // session cannot continue, so tear it down cleanly and try to reconnect by
+            // itself (QUICK, up to 3 attempts); only if that gives up does the watch take
+            // over for the next drive. ERROR only: a user Stop publishes CANCELLED, and
+            // stopAll() must not re-enter itself.
             if (it.stage == NetworkStage.ERROR && projection.active && !quickPending &&
                 mutablePinRequest.value == null && prepared == null) {
-                stopAll("Network lost during the session")
+                stopAll("Network lost during the session", restartWatch = false)
+                scheduleReconnect("network lost")
             }
         } }
         // The prepared connection is consumed once the session is authenticated: it means
         // "prepared but not started", and the watch-idle check needs it cleared so the watch
         // can restart after a live session ends.
-        network.onSessionAuthenticated = { local, key -> prepared = null; projection.onAuthenticated(local, key) }
+        network.onSessionAuthenticated = { local, key ->
+            prepared = null
+            // A (re)connection authenticated: any auto-reconnect episode is over.
+            if (reconnecting) {
+                reconnectJob?.cancel(); reconnectJob = null
+                reconnecting = false; reconnectAttempts = 0
+                event("Reconnected after the drop")
+            }
+            projection.onAuthenticated(local, key)
+        }
         viewModelScope.launch { network.authProbe.collect {
             event("TCP AUTH test: ${it.stage}; ${it.detail}; duration ms=${it.elapsedMs}; no payload or ICCOA session")
         } }
