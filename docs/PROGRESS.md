@@ -2928,3 +2928,40 @@ las claves QUICK se conservan. El icono nuevo parte del logo original (A con
 carretera y enlace) y le integra la X en el cuerpo de la A, un i60 pequeño a
 su lado y el enlace sobre el coche. El artefacto y el archivo APK pasan a
 `aionlink-open-x-apk` / `aionlink-open-x-0.42.0.46-research.apk`.
+
+## Encuesta de progreso - 2026-11-17 (build 45 en el coche, build 46 entregado)
+
+Respuestas de Naomi tras probar la build 45 (diagnostics__7 + logcat__13) y
+recibir la 46 (AionLink Open X):
+
+1. Auto-conexión: la notificación de "coche encontrado" llega a veces, pero
+   la app NO se abre sola; hay que abrir la app o tocar la notificación. El
+   código pone el full-screen intent cuando el permiso lo permite; quedan dos
+   condiciones por confirmar: el permiso de alertas de pantalla completa y que
+   la pantalla esté apagada/bloqueada (con el teléfono despierto Android solo
+   muestra la notificación). Pendiente: que Naomi confirme si en Opciones
+   avanzadas aparece el botón "Allow full-screen alerts" y qué texto trae la
+   notificación ("Connecting automatically" = permiso concedido).
+2. Audio: bien ahora. Naomi cambió el ajuste de desarrollador de Android Auto
+   a "Prefer AAC-LC with ADTS headers" y el sonido mejoró (además del AAC a
+   256 kbps de la build 45).
+3. Vídeo: sigue con lag ("jelly") y el tacto parece no responder. Causa: el
+   teléfono entra en thermal SEVERE a los 0,5 s de empezar el vídeo y el
+   limitador baja a la mitad de fotogramas (13 fps). El tacto SÍ llega
+   (233/233 aplicados, 0 fuera de imagen); lo que tarda es la respuesta en
+   pantalla. A probar sin build: activar "keep 30 fps when hot" y/o bajar la
+   calidad a COMPATIBLE (1280x720).
+4. Volante (siguiente/anterior/pausa): Naomi confirma que pulsó las teclas.
+   Siguen sin llegar como teclas UIBC (keys=0) ni como custom_key_event
+   (car keys=0). Únicos candidatos: tres mensajes SENSOR método 8 (15:17:39,
+   15:19:48, 15:21:36), pero el canal SENSOR es pasivo (solo ACK) y su método
+   8 no está interpretado (el nombre viene de la lista de métodos CONTROL).
+   Prueba pendiente: pulsar a horas conocidas y capturar justo después; si el
+   método 8 sigue a cada pulsación, se añadirá registro de su contenido para
+   identificar cada botón y mapearlo a teclas multimedia.
+5. Siguiente: reconexión automática tras una caída (elegido por Naomi).
+   Plan (build 47, pendiente de su visto bueno): si una sesión activa se
+   corta sin tocar Stop (error de red, el coche cierra la sesión o cae el
+   P2P), reintentar la conexión con QUICK sin código; máximo 3 intentos con
+   espera creciente (inmediato, +15 s, +45 s) y, si el coche ya no está,
+   volver a la vigilancia (alerta cuando reaparezca). Sin bucles infinitos.
