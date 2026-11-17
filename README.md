@@ -185,8 +185,8 @@ verifies the APK carries that key.
 ### AionLink Open X
 
 ```powershell
-git clone https://github.com/bunthoeurndim/aionopen_link_mrB.git
-cd aionopen_link_mrB\android
+git clone https://github.com/bunthoeurndim/aionlink-open-x.git
+cd aionlink-open-x\android
 $env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
 $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 ./gradlew.bat testDebugUnitTest :app:assembleDebug :app:lintDebug -PaionlinkLab
