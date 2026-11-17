@@ -2917,3 +2917,14 @@ abre sola). Además, la conexión preparada se marca como consumida al
 autenticarse, para que la vigilancia pueda reiniciarse tras una sesión. Y el
 audio AAC sube de 128 a 256 kbps: el coche escucha una segunda compresión y a
 128 kbps sonaba pobre, sobre todo los graves.
+
+## AionLink Open X: nuevo nombre y logo - 2026-11-17
+
+La aplicación pasa a llamarse AionLink Open X (antes AionLink Probe): el nombre
+mantiene el original, AionLink Open, y la X marca las funciones añadidas
+(QUICK, vigilancia de conexión automática, selector de modo, audio AAC a 256
+kbps). El paquete sigue siendo org.aionlink.open.lab, así que los ajustes y
+las claves QUICK se conservan. El icono nuevo parte del logo original (A con
+carretera y enlace) y le integra la X en el cuerpo de la A, un i60 pequeño a
+su lado y el enlace sobre el coche. El artefacto y el archivo APK pasan a
+`aionlink-open-x-apk` / `aionlink-open-x-0.42.0.46-research.apk`.

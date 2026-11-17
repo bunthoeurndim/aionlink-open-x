@@ -6,12 +6,12 @@ android {
     defaultConfig {
         // Optional isolated lab package lets encoder tests run without replacing the owner's installed app.
         applicationId = if (project.hasProperty("aionlinkLab")) "org.aionlink.open.lab" else "org.aionlink.open"
-        manifestPlaceholders["applicationLabel"] = if (project.hasProperty("aionlinkLab")) "AionLink Probe" else "AionLink Open"
+        manifestPlaceholders["applicationLabel"] = if (project.hasProperty("aionlinkLab")) "AionLink Open X" else "AionLink Open"
         minSdk = 29; targetSdk = 35
         // Build tracking: bump both on every delivered build. versionName is 0.42.0.<code>-research
         // so the home screen (which shows up to the first "-") and the diagnostics export both
         // carry the build number; the workflow names the APK file from this versionName.
-        versionCode = 45; versionName = "0.42.0.45-research"
+        versionCode = 46; versionName = "0.42.0.46-research"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Optional fixed signing key (android/keystore.properties, never committed) so every PC produces APKs that update

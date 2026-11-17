@@ -1,8 +1,8 @@
 ﻿<p align="center">
-  <img src="docs/assets/opencarlink.png" alt="AionLink icon" width="160" />
+  <img src="docs/assets/aionlink-open-x.png" alt="AionLink Open X icon" width="160" />
 </p>
 
-<h1 align="center">AionLink Open</h1>
+<h1 align="center">AionLink Open X</h1>
 
 <p align="center">
   <strong>Android Auto and your phone's screen in a GAC AION with ICCOA CarLink.</strong><br />
@@ -31,7 +31,7 @@
 ## What it does
 
 The GAC AION i60 only offers **ICCOA CarLink**, a Chinese projection protocol
-that international phones do not include. AionLink Open implements the phone
+that international phones do not include. AionLink Open X implements the phone
 side of that protocol with public Android APIs and brings to the car:
 
 - **Android Auto**, via [OpenHeadunit Lite](#openheadunit-lite), with the
@@ -54,7 +54,7 @@ Galaxy S25 Ultra                                              GAC AION i60
 │      local)                │ ────────────────────────► │  screen          │
 │ OpenHeadunit Lite          │   AAC audio 48 kHz        │                  │
 │   ↓ surface + audio        │                           │                  │
-│ AionLink Probe ────────────┼──◄────── touches (UIBC) ───┤                  │
+│ AionLink Open X ───────────┼──◄────── touches (UIBC) ───┤                  │
 └────────────────────────────┘                           └──────────────────┘
 ```
 
@@ -63,7 +63,7 @@ Reference vehicle: **GAC AION i60 REEV Platinum** (ADiGO unit, firmware
 Galaxy S25 Ultra** with Android 17.
 
 <p align="center">
-  <img src="docs/assets/screenshots/aionlink-probe.png" alt="AionLink Probe home screen" width="300" />
+  <img src="docs/assets/screenshots/aionlink-probe.png" alt="AionLink Open X home screen" width="300" />
   &nbsp;&nbsp;
   <img src="docs/assets/screenshots/openheadunit-lite.png" alt="OpenHeadunit Lite screen" width="300" />
 </p>
@@ -95,7 +95,7 @@ are research builds (`-research`).
 
 ### What you need
 
-1. **AionLink Probe** (`org.aionlink.open.lab`), built from this repository.
+1. **AionLink Open X** (`org.aionlink.open.lab`), built from this repository.
 2. **OpenHeadunit Lite** (`org.aionlink.headunit.lite`), built from the `main`
    branch of [our Open Headunit fork](https://github.com/bunthoeurndim/open-headunit),
    which carries the AionLink surface bridge and touch tracing.
@@ -112,7 +112,7 @@ are research builds (`-research`).
 
 ### First time on a phone
 
-Open **AionLink Probe**. If something is missing, the **Before connecting**
+Open **AionLink Open X**. If something is missing, the **Before connecting**
 card shows it with a button to fix it:
 
 - **Bluetooth and nearby devices**: to find the car and create its Wi-Fi Direct network.
@@ -128,7 +128,7 @@ configure.
 ### Connect
 
 1. With the car **parked**, open CarLink on the car screen.
-2. In AionLink Probe tap **Find my car** and then **Connect** next to the receiver.
+2. In AionLink Open X tap **Find my car** and then **Connect** next to the receiver.
 3. Enter the code the car shows (first pairing only — later connections skip
    it; see [Reconnecting without the code](#reconnecting-without-the-code-quick)).
 4. Android Auto appears on the car screen. You can turn off the phone screen.
@@ -175,14 +175,14 @@ diagnostics export are under **Advanced options and diagnostics**.
 Pinned versions: **Gradle 8.13**, **AGP 8.9.1**, **Kotlin and Compose 2.1.20**,
 minSdk 29, compile/target SDK 35.
 
-GitHub Actions also builds the Probe debug APK automatically on every push and
+GitHub Actions also builds the Open X debug APK automatically on every push and
 pull request (`.github/workflows/build-apk.yml`): it runs the Python and JVM
-unit tests, then builds AionLink Probe and uploads it as the
-`aionlink-probe-apk` artifact. The build is signed with the shared key (see
+unit tests, then builds AionLink Open X and uploads it as the
+`aionlink-open-x-apk` artifact. The build is signed with the shared key (see
 below), so it installs over the app already on the phone; the workflow
 verifies the APK carries that key.
 
-### AionLink Probe
+### AionLink Open X
 
 ```powershell
 git clone https://github.com/bunthoeurndim/aionopen_link_mrB.git
@@ -193,7 +193,7 @@ $env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 adb install -r app\build\outputs\apk\debug\app-debug.apk
 ```
 
-Probe is the only variant: AionLink Open was the same code with a different
+Open X is the only variant: AionLink Open was the same code with a different
 package name (`org.aionlink.open`), kept only so its author could test without
 overwriting his daily app. The `scripts/Build-Android.ps1` script runs the
 tests and lint and copies the APK to `artifacts/builds/`.
@@ -225,7 +225,7 @@ saved here as a patch:
 ## OpenHeadunit Lite
 
 An edition of [Open Headunit](https://github.com/andreknieriem/open-headunit)
-(AGPL-3.0) dedicated to AionLink Probe. It installs alongside the full app:
+(AGPL-3.0) dedicated to AionLink Open X. It installs alongside the full app:
 
 - **Fixed settings** on every start: standalone mode only, 1080p, H.264, 30 fps,
   landscape, audio to AionLink.
@@ -341,7 +341,7 @@ them.
 
 ## Credits
 
-AionLink Open is based on [codepdbh/aionlink-open](https://github.com/codepdbh/aionlink-open),
+AionLink Open X is based on [codepdbh/aionlink-open](https://github.com/codepdbh/aionlink-open),
 the experimental ICCOA CarLink client for the GAC AION, distributed under
 GPL-3.0-or-later. This fork translates the app to English and adds: quick
 reconnect without the code, car watch and mode picker, steering-wheel media
