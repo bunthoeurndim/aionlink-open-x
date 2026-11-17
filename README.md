@@ -45,6 +45,9 @@ side of that protocol with public Android APIs and brings to the car:
 - **Car watch and mode picker**: the app watches in the background for the
   car and notifies when it is near; the home screen picks the projection
   mode (Mirror, Dashboard, or Lite) for the next connection.
+- **Auto-reconnect after a drop**: if a live session ends unexpectedly, the
+  app retries by itself with QUICK (no code), up to 3 attempts, then falls
+  back to the car watch.
 
 ```text
 Galaxy S25 Ultra                                              GAC AION i60
@@ -79,12 +82,13 @@ owner report. The detail with hashes and dates is in
 | ICCOA session: BLE, Wi-Fi Direct, AUTH, CONTROL, RTSP | ✅ Works | On the AION since 0.25 |
 | Mirror 1920x960 at 30 fps with AAC audio | ✅ Works | On the AION with 0.34: 11 Mbps, 31 fps, 6175 AAC frames; sound reaches the car, and the phone is not muted |
 | Mirror touch | 🟡 Partial | Video and audio work, but the owner reports touch mostly does not work: taps outside the middle strip are dropped when the phone is portrait, and the "Car touch" accessibility service must be on |
-| Android Auto via OpenHeadunit Lite (video, audio, reconnection) | ✅ Works | On the phone (0.42): 24–28 fps, real audio, 5/5 reconnections; connected in the car on 2026-11-15 |
+| Android Auto via OpenHeadunit Lite (video, audio, reconnection) | ✅ Works | On the phone (0.42): 24–28 fps, real audio, 5/5 reconnections; video streaming in the car on 2026-11-17 (build 45), touch confirmed |
 | Android Auto with the screen off | ✅ Works | On the phone: stable 20 fps with the screen off |
-| Android Auto touch in the car | 🟡 Implemented | The car declares a 1920x972 touch frame; Lite now logs every bridge touch (OPENHU tag) so a tap test shows where taps die; awaiting that test |
-| Steering wheel next/previous in Android Auto | 🧪 Experimental | Implemented 2026-11-16: the car's UIBC key events go over the bridge to Android Auto (mirror/dashboard: to the phone's media session); needs a car test — the log must show the wheel actually sends the presses as UIBC keys |
-| Quick reconnect without the code (QUICK) | 🧪 Experimental | Implemented 2026-11-16; needs a car test: first connection saves the key, the second should skip the code; any failure falls back to the PIN dialog |
-| Car watch and projection mode picker | 🟡 Implemented | Code complete 2026-11-16; watch notification and mode picker untested in the car; boot resume on Android 17 unproven |
+| Android Auto touch in the car | ✅ Works | On the AION (build 45): 233 touches applied, 0 dropped in one session; 794 applied of 796 in a longer one. Lite logs every bridge touch (OPENHU tag) |
+| Steering wheel next/previous in Android Auto | ❌ Car limitation | Timed presses in the car (2026-11-17) produced no UIBC key event and no CONTROL custom_key_event at all: the i60 routes the wheel to its own player and never sends the presses to the phone. The forwarding code is complete (bridge KEY=4 → Android Auto) and would work if the car ever sent them; nothing more can be built on the phone side |
+| Quick reconnect without the code (QUICK) | ✅ Works | Proven in the car 2026-11-16 and 2026-11-17: the i60 accepts QUICK from AionLink (3 for 3, then again on later sessions). First connection saves the key, later ones skip the code; any failure falls back to the PIN dialog |
+| Auto-reconnect after a drop | ✅ Implemented | Built 2026-11-17 (build 47): if a live session ends unexpectedly (network error, car closes it, P2P drop) the app retries by itself with QUICK, max 3 attempts (right away, +15 s, +45 s), then falls back to the watch; never on a user Stop. Awaiting a car test of a real drop |
+| Car watch and projection mode picker | 🟡 Partial | Watch notifies when the car is near and restarts itself after a disconnect, an app update, and a phone restart (builds 44–45). It opens the app by itself only with the full-screen alert permission granted and the screen off or locked; with the phone awake it shows a banner. Mode picker works (Lite default); mid-session switch applies on the next PLAY |
 | Own panel with the screen off | 🟡 Implemented | Encoding measured 10 min on the phone |
 | Wired USB/AOA connection | 🧪 Experimental | No authentication with the AION |
 
@@ -143,17 +147,21 @@ phone and stores the car's key. From the second connection on, the app
 connects without showing the code dialog. If the car rejects the saved key,
 the app deletes it and asks for the code exactly as before — the fallback is
 the normal flow, not an error. The diagnostics export shows how many saved
-keys the phone holds (`Quick connect: saved keys=N`). Whether the Aion
-receiver accepts a saved key from a third-party client is still unproven in
-the car; that is what the next test decides.
+keys the phone holds (`Quick connect: saved keys=N`). Proven in the car: the
+Aion receiver accepts a saved key from AionLink — the second and later
+connections skip the code (verified 2026-11-16 and 2026-11-17).
 
 ### Car watch and projection mode
 
 - **Car watch** (Advanced options → Automatic connection): the app watches in
   the background for the car's ICCOA advertisement and notifies when it is
   near. Tapping the notification opens the app, prepares the connection, and
-  opens the code dialog with automatic AUTH pre-checked. The watch resumes
-  after a disconnect and after the phone restarts.
+  opens the code dialog with automatic AUTH pre-checked. The notification
+  opens the app by itself only when the full-screen alert permission is
+  granted (Advanced options offers the button when it is not) and the phone
+  screen is off or locked; with the phone awake, Android shows a banner
+  instead. The watch resumes after a disconnect, an app update, and a phone
+  restart.
 - **Projection mode** (home screen): Mirror, Dashboard, or Lite is the
   default for the next connection (Lite is the default). Switching mode in
   the middle of a session stops only the video stream; the new mode applies
@@ -299,10 +307,11 @@ See [tool usage](docs/troubleshooting/TOOLS.md) and the
 - [x] Android Auto via OpenHeadunit Lite, with audio and reconnection.
 - [x] Simplified screens and own icon (0.42).
 - [x] Signed build to install without compiling (shared key, GitHub Actions).
-- [ ] Android Auto touch diagnosis on the AION (picture and audio verified;
-  touch pending a tap test with the Lite touch log).
-- [ ] Quick reconnect without the code: verify in the car (second connection
+- [x] Android Auto touch on the AION (233 touches applied, 0 dropped).
+- [x] Quick reconnect without the code: verified in the car (second connection
   skips the code).
+- [x] Auto-reconnect after a drop (build 47): retries with QUICK, up to 3
+  attempts, then falls back to the watch; needs a car test of a real drop.
 - [ ] Measure consumption and stability on long trips.
 - [ ] Full wired connection.
 
@@ -344,9 +353,10 @@ them.
 AionLink Open X is based on [codepdbh/aionlink-open](https://github.com/codepdbh/aionlink-open),
 the experimental ICCOA CarLink client for the GAC AION, distributed under
 GPL-3.0-or-later. This fork translates the app to English and adds: quick
-reconnect without the code, car watch and mode picker, steering-wheel media
-keys, a Wi-Fi lock for the car link, full-bitrate video in car mode, and Lite
-touch tracing support.
+reconnect without the code, auto-reconnect after a drop, car watch and mode
+picker, steering-wheel media keys, a Wi-Fi lock for the car link,
+full-bitrate video in car mode, AAC audio at 256 kbps, and Lite touch tracing
+support.
 
 OpenHeadunit Lite is based on [codepdbh/open-headunit](https://github.com/codepdbh/open-headunit),
 itself a variant of [Open Headunit](https://github.com/andreknieriem/open-headunit)

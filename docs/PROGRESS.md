@@ -2979,3 +2979,51 @@ vigilancia queda apagada durante el episodio y solo vuelve si la reconexión se
 rinde; si QUICK falla y aparece el diálogo del código, el episodio termina (el
 flujo manual toma el relevo); tocar Stop cancela el episodio. La exportación de
 diagnóstico muestra "Auto-reconnect: attempt N of 3 / idle".
+
+## Estado actual — 2026-11-17 (build 47)
+
+Resumen para quien llega al repositorio: qué funciona en el coche, qué está
+parcial y qué está cerrado. El detalle con fechas, hashes y evidencia está en
+las entradas anteriores.
+
+Funciona en el AION i60 (verificado en el coche):
+- Sesión ICCOA completa: BLE, Wi-Fi Direct, AUTH, CONTROL, RTSP.
+- Espejo 1920x960 a 30 fps con audio AAC (256 kbps desde la build 45).
+- Android Auto por OpenHeadunit Lite: vídeo en streaming, audio y táctil
+  (233 toques aplicados, 0 perdidos; 794 de 796 en una sesión larga).
+- Conexión rápida sin código (QUICK): el i60 acepta la clave guardada; las
+  conexiones posteriores saltan el diálogo del código (probado 2026-11-16
+  y 2026-11-17). Cualquier fallo vuelve al PIN.
+- Vigilancia del coche: avisa cuando el coche está cerca y se reinicia sola
+  tras una desconexión, una actualización de la app y un reinicio del teléfono
+  (builds 44–45).
+- Reconexión automática tras una caída (build 47): si la sesión se corta sin
+  tocar Stop, reintenta sola con QUICK, máximo 3 intentos (inmediato, +15 s,
+  +45 s) y luego vuelve a la vigilancia. Pendiente la prueba con una caída real.
+
+Parcial, con límites conocidos:
+- Apertura automática: la alerta abre la app por sí sola solo con el permiso
+  de alertas a pantalla completa concedido y la pantalla apagada o bloqueada;
+  con el teléfono despierto solo muestra un aviso.
+- Táctil en espejo: funciona, pero con el teléfono en vertical los toques
+  fuera de la franja central se descartan; el servicio de accesibilidad
+  "Car touch" debe estar activado (las actualizaciones lo apagan).
+- Velocidad de vídeo: el teléfono entra en thermal SEVERE al empezar el vídeo
+  y el encoder baja a la mitad de cuadros; el ajuste "keep 30 fps when hot"
+  lo compensa (29–30 fps decodificados en Lite).
+- Graves con mucha potencia en rap: el sonido se rompe solo por Android Auto,
+  no por Bluetooth con el mismo ecualizador; la señal capturada llega caliente
+  (picos de 88–100 %). Pendiente la prueba de bajar los graves en Poweramp.
+
+Cerrado, sin nada que construir en el teléfono:
+- Botones del volante: las pulsaciones cronometradas en el coche no producen
+  ningún evento UIBC ni custom_key_event; el i60 dirige el volante a su
+  propio reproductor y nunca envía las pulsaciones al teléfono. El código de
+  reenvío está completo y funcionaría si el coche las enviara.
+- Llamadas de Telegram por CarLink: el audio de llamada es VoIP, no media;
+  Android no lo encamina por el tubo AAC y no hay enlace HFP con el i60.
+- 60 fps: el coche declara 30 fps y su pantalla es de 30 fps.
+
+Siguiente: probar la reconexión automática con una caída real y decidir el
+tratamiento del audio (atenuación de −3 dB en la bomba AAC si la prueba de
+ecualizador confirma que es nivel).
