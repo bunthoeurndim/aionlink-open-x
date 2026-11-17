@@ -1,7 +1,7 @@
 name: Build AionLink APK
 
-# Builds the debug APK for AionLink Probe (lab variant) on every push /
-# pull request to main. Probe is the only variant: AionLink Open was the
+# Builds the debug APK for AionLink Open X (lab variant) on every push /
+# pull request to main. Open X is the only variant: AionLink Open was the
 # same code with a different package name, kept only so its author could
 # test without overwriting his daily app.
 # Signing: the repo secrets ANDROID_KEYSTORE_BASE64 / KEYSTORE_PASSWORD /
@@ -83,14 +83,14 @@ jobs:
       - name: Run JVM unit tests
         run: ./gradlew :core:test :protocol-iccoa:test :projection:test :transport-bluetooth:testDebugUnitTest :transport-wifi:testDebugUnitTest --no-daemon --console=plain
 
-      - name: Build AionLink Probe / lab variant (debug)
+      - name: Build AionLink Open X / lab variant (debug)
         run: ./gradlew :app:assembleDebug -PaionlinkLab --no-daemon --console=plain
 
-      - name: Save AionLink Probe APK
+      - name: Save AionLink Open X APK
         run: |
           mkdir -p "${{ github.workspace }}/artifacts"
           VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
-          cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-probe-${VERSION}.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "${{ github.workspace }}/artifacts/aionlink-open-x-${VERSION}.apk"
           ls -l "${{ github.workspace }}/artifacts"
 
       # Prints the signing certificate of the APK; with the shared key it
@@ -99,12 +99,12 @@ jobs:
         run: |
           APKSIGNER="$(ls "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)"
           VERSION=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -1)
-          "$APKSIGNER" verify --print-certs "${{ github.workspace }}/artifacts/aionlink-probe-${VERSION}.apk"
+          "$APKSIGNER" verify --print-certs "${{ github.workspace }}/artifacts/aionlink-open-x-${VERSION}.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: aionlink-probe-apk
+          name: aionlink-open-x-apk
           path: artifacts/*.apk
           if-no-files-found: error
           retention-days: 30
