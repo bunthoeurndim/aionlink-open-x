@@ -342,7 +342,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
             if (withAudio && !audioFromBridge) try {
                 AudioCapture(granted!!, { frame, ptsUs -> streamer.onAudioFrame(frame, ptsUs) }, { error ->
                     mutableStream.value = mutableStream.value.copy(audio = error); event("Audio stopped: $error")
-                }, onLevel = { level -> logAudioLevel(level) }).also { audioCapture = it; it.start() }
+                }, onLevel = { level -> logAudioLevel(level) }, reduceClipping = { quality.reduceClipping.value }).also { audioCapture = it; it.start() }
             } catch (error: Exception) { mutableStream.value = mutableStream.value.copy(audio = "START_${error.javaClass.simpleName}") }
             event("Video started to the receiver: $label; M4=${play.mode.width}x${play.mode.height}p${play.mode.fps}; " +
                 "car screen=${play.carDisplay?.let { "${it.width}x${it.height}@${it.fps}" } ?: "not reported"}; audio=$audioState; touch=${play.uibc}")
@@ -369,7 +369,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
     private fun startBridgeAudio(streamer: TsRtpStreamer): BridgeAudio? = try {
         BridgeAudio({ frame, ptsUs -> streamer.onAudioFrame(frame, ptsUs) }, { error ->
             mutableStream.value = mutableStream.value.copy(audio = error); event("Bridge audio stopped: $error")
-        }, onLevel = { level -> logAudioLevel(level) }).also { bridgeAudio = it; it.start() }
+        }, onLevel = { level -> logAudioLevel(level) }, reduceClipping = { quality.reduceClipping.value }).also { bridgeAudio = it; it.start() }
     } catch (error: Exception) {
         mutableStream.value = mutableStream.value.copy(audio = "PUENTE_${error.javaClass.simpleName}"); null
     }

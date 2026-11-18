@@ -22,7 +22,9 @@ class AudioCapture(
     private val onFrame: (ByteArray, Long) -> Unit,
     private val onError: (String) -> Unit,
     /** Peak of the captured PCM, 0 to 100, every [AacPump.LEVEL_REPORT_MS]: 0 means nothing capturable is playing. */
-    private val onLevel: (Int) -> Unit = {}
+    private val onLevel: (Int) -> Unit = {},
+    /** Read on every chunk: when true the pump attenuates before encoding (see [AacPump.scaleForClipping]). */
+    private val reduceClipping: () -> Boolean = { false }
 ) : AutoCloseable {
     companion object { const val SAMPLE_RATE = AacPump.SAMPLE_RATE; const val CHANNELS = AacPump.CHANNELS }
     private var record: AudioRecord? = null
@@ -43,7 +45,7 @@ class AudioCapture(
         if (capture.state != AudioRecord.STATE_INITIALIZED) { capture.release(); onError("AUDIORECORD_NO_INICIALIZADO"); return }
         record = capture
         capture.startRecording()
-        pump = AacPump({ chunk, size -> capture.read(chunk, 0, size).coerceAtLeast(0) }, onFrame, onError, onLevel).also { it.start() }
+        pump = AacPump({ chunk, size -> capture.read(chunk, 0, size).coerceAtLeast(0) }, onFrame, onError, onLevel, reduceClipping).also { it.start() }
     }
 
     override fun close() {
@@ -64,8 +66,26 @@ class AacPump(
     private val onFrame: (ByteArray, Long) -> Unit,
     private val onError: (String) -> Unit,
     private val onLevel: (Int) -> Unit = {},
+    /** Read on every chunk: when true the samples are attenuated before encoding. */
+    private val reduceClipping: () -> Boolean = { false },
 ) : AutoCloseable {
-    companion object { const val SAMPLE_RATE = 48000; const val CHANNELS = 2; const val LEVEL_REPORT_MS = 5000L; const val CHUNK_BYTES = 4096 }
+    companion object { const val SAMPLE_RATE = 48000; const val CHANNELS = 2; const val LEVEL_REPORT_MS = 5000L; const val CHUNK_BYTES = 4096
+        /**
+         * −3 dB (×71/100) with a hard clamp just below full scale, in place. The captured signal
+         * runs hot (peaks 88–100%) and the car's CarLink DSP clips heavy bass; the gain gives the
+         * headroom and the clamp is the safety net for a stray peak. Integer math: 32767 × 71
+         * fits in Int, so this cannot overflow. [count] is a byte count; a trailing odd byte
+         * (never a whole sample) is left untouched.
+         */
+        fun scaleForClipping(chunk: ByteArray, count: Int) {
+            for (i in 0 until count / 2) {
+                val sample = ((chunk[2 * i].toInt() and 0xff) or (chunk[2 * i + 1].toInt() shl 8)).toShort().toInt()
+                val scaled = (sample * 71 / 100).coerceIn(-32767, 32767)
+                chunk[2 * i] = (scaled and 0xff).toByte()
+                chunk[2 * i + 1] = (scaled shr 8).toByte()
+            }
+        }
+    }
     @Volatile private var running = false
     private var codec: MediaCodec? = null
     /** Held while touching codec buffers and while releasing the codec, so neither copy runs on freed memory. */
@@ -103,6 +123,9 @@ class AacPump(
                     val sample = (chunk[2 * i].toInt() and 0xff) or (chunk[2 * i + 1].toInt() shl 8)
                     peak = maxOf(peak, kotlin.math.abs(sample.toShort().toInt()))
                 }
+                // Peak is measured on the raw signal (the export still shows the true input
+                // level); attenuation happens after, so the toggle's effect is audible, not hidden.
+                if (reduceClipping()) scaleForClipping(chunk, count)
                 val now = System.currentTimeMillis()
                 if (now - reportedAt >= LEVEL_REPORT_MS) { onLevel(peak * 100 / 32768); peak = 0; reportedAt = now }
                 // Timestamp of the first sample in this chunk, on the same monotonic clock as the video encoder.

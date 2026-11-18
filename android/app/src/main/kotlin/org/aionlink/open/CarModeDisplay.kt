@@ -24,6 +24,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ProgressBar
 import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -222,12 +223,20 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
     private val mediaApp = text(22f, color = 0xFF9FB3C8.toInt())
     private val mediaTitle = text(40f, bold = true)
     private val mediaArtist = text(28f, color = 0xFFCBD5E1.toInt())
+    private val mediaArt = ImageView(context).apply {
+        layoutParams = LayoutParams(dp(120), dp(120)); scaleType = ImageView.ScaleType.CENTER_CROP
+    }
+    private val mediaProgress = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
+        max = 1000
+        layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(8)).apply { topMargin = dp(16) }
+    }
+    private var lastInfo: CarInfo? = null
     private val playButton = button("▶") { CarInfoListener.playPause() }
     private val navIcon = ImageView(context).apply { layoutParams = LayoutParams(dp(120), dp(120)) }
     private val navTitle = text(40f, bold = true)
     private val navText = text(28f, color = 0xFFCBD5E1.toInt())
     private val tick = object : Runnable {
-        override fun run() { updateClock(); postDelayed(this, 1000) }
+        override fun run() { updateClock(); updateProgress(); postDelayed(this, 1000) }
     }
 
     init {
@@ -236,7 +245,7 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
         setPadding(dp(32), dp(32), dp(32), dp(32))
         addView(column(1f, clock, date, battery, text(20f, color = 0xFF64748B.toInt()).apply { text = "AionLink · Car mode" }))
         addView(card(1.3f).apply {
-            addView(mediaApp); addView(mediaTitle); addView(mediaArtist)
+            addView(mediaArt); addView(mediaApp); addView(mediaTitle); addView(mediaArtist); addView(mediaProgress)
             addView(LinearLayout(context).apply {
                 orientation = HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(24), 0, 0)
                 addView(button("⏮") { CarInfoListener.previous() }); addView(playButton); addView(button("⏭") { CarInfoListener.next() })
@@ -250,15 +259,34 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
     fun release() { removeCallbacks(tick); scope.cancel() }
 
     private fun render(info: CarInfo) {
+        lastInfo = info
         val access = CarInfoListener.granted(context)
         mediaApp.text = info.mediaApp ?: "Music"
         mediaTitle.text = info.mediaTitle ?: if (access) "Nothing playing" else "Enable notification access in AionLink"
         mediaArtist.text = info.mediaArtist ?: ""
         playButton.text = if (info.mediaPlaying) "⏸" else "▶"
+        mediaArt.setImageBitmap(info.mediaArt)
+        mediaArt.visibility = if (info.mediaArt != null) View.VISIBLE else View.GONE
+        updateProgress()
         navTitle.text = info.navTitle ?: "No active navigation"
         navText.text = info.navText ?: if (access) "Start a route in Maps or Waze on the phone" else ""
         navIcon.setImageBitmap(info.navIcon)
         navIcon.visibility = if (info.navIcon != null) View.VISIBLE else View.GONE
+    }
+
+    /** Track position as a 0..1 fraction, or null when there is nothing to show (no track, live
+     * stream without a duration). While playing, the position advances from the last read. */
+    private fun trackFraction(info: CarInfo): Float? {
+        if (info.mediaDurationMs <= 0L) return null
+        val pos = if (info.mediaPlaying) info.mediaPositionMs + (SystemClock.elapsedRealtime() - info.mediaPositionAtMs)
+            else info.mediaPositionMs
+        return (pos.toFloat() / info.mediaDurationMs).coerceIn(0f, 1f)
+    }
+
+    private fun updateProgress() {
+        val fraction = lastInfo?.let(::trackFraction)
+        if (fraction == null) mediaProgress.visibility = View.GONE
+        else { mediaProgress.visibility = View.VISIBLE; mediaProgress.progress = (fraction * 1000).toInt() }
     }
 
     private fun updateClock() {

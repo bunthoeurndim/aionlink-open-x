@@ -3027,3 +3027,32 @@ Cerrado, sin nada que construir en el teléfono:
 Siguiente: probar la reconexión automática con una caída real y decidir el
 tratamiento del audio (atenuación de −3 dB en la bomba AAC si la prueba de
 ecualizador confirma que es nivel).
+
+## Atenuación de graves, aviso de actualización y carátula — build 48 (2026-11-18)
+
+Aprobado por la dueña ("can do as you suggested", sobre la investigación de
+funciones del 2026-11-18): tres funciones pequeñas en una sola build, sin
+riesgo para el coche.
+
+- Graves (función nº 1): interruptor "Bass clipping" en opciones avanzadas.
+  La bomba AAC atenúa −3 dB (×71/100, con límite duro justo por debajo del
+  máximo) antes de codificar, en espejo y en Android Auto. El pico medido
+  sigue siendo el de la señal original, así que la exportación lo muestra
+  sin cambios; el interruptor mismo es la prueba: se enciende con una
+  canción de graves y se compara, sin tocar Poweramp. Pendiente la prueba
+  en el coche.
+- Actualizaciones (función nº 5): "Check for updates" en opciones avanzadas
+  consulta la API pública de Releases de GitHub y compara la etiqueta con
+  la versión instalada; también lo hace sola una vez al día al abrir la
+  app (nunca durante una sesión). Solo avisa y enlaza la página de la
+  release; nada se descarga ni se instala solo.
+- Panel (función nº 7): la tarjeta de música muestra la carátula del álbum
+  (escalada a 240 px) y una barra fina de progreso de la pista, que avanza
+  con el reloj de 1 s mientras suena. Sin duración (directos) la barra se
+  oculta; sin carátula se mantiene la tarjeta de texto.
+
+Releases: la primera release con APK (0.42.0.47) y la de Lite se publicaron
+el 2026-11-18 con el nuevo flujo "Release APK" (se ejecuta a mano desde
+Actions; descarga el artefacto dentro de GitHub y crea la release con las
+notas del CHANGELOG.md). A partir de ahora, una release por cada build
+entregada.

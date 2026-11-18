@@ -84,6 +84,20 @@ class VideoQuality(context: Context) {
         mutableKeepFullFpsWhenHot.value = value
     }
 
+    /**
+     * Reduce bass clipping: −3 dB before AAC encoding (mirror + Android Auto paths). Off by default:
+     * the captured signal runs hot (peaks 88–100%) and the car's CarLink DSP clips heavy bass.
+     * The toggle itself is the test — flip it on during a bass-heavy song. The car volume
+     * compensates the 3 dB.
+     */
+    private val mutableReduceClipping = MutableStateFlow(preferences.getBoolean("reduce_bass_clipping", false))
+    val reduceClipping = mutableReduceClipping.asStateFlow()
+
+    fun setReduceClipping(value: Boolean) {
+        preferences.edit().putBoolean("reduce_bass_clipping", value).apply()
+        mutableReduceClipping.value = value
+    }
+
     /** Re-read the watch flag (the background service can turn it off from a notification action). */
     fun refreshAutoWatch() {
         mutableAutoWatch.value = preferences.getBoolean("auto_watch", false)

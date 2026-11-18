@@ -2,6 +2,7 @@ package org.aionlink.open
 
 import android.app.Application
 import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
@@ -27,6 +28,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -133,7 +135,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
             val sound = try {
                 BridgeAudio({ frame, pts -> synchronized(streamer) { streamer.onAudioFrame(frame, pts) } },
                     { error -> probeHandler.post { event("Android Auto test: bridge audio stopped: $error") } },
-                    onLevel = { peak.set(it) }).also { headunitPreviewAudio = it; it.start() }
+                    onLevel = { peak.set(it) }, reduceClipping = { projection.quality.reduceClipping.value }).also { headunitPreviewAudio = it; it.start() }
             } catch (error: Exception) { event("Android Auto test: bridge audio not started: ${error.javaClass.simpleName}"); null }
             HeadunitSurfaceBridge(getApplication(), input, sound) { result -> event("Android Auto test: $result") }
                 .also { headunitPreviewBridge = it; it.start() }
@@ -513,6 +515,34 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         prepareHandler.removeCallbacks(backgroundExpiry)
         projection.quality.refreshAutoWatch()
         resumeWatchIfIdle()
+        maybeCheckForUpdate()
+    }
+
+    private val updatePrefs = getApplication<Application>().getSharedPreferences("aionlink_updates", Context.MODE_PRIVATE)
+    private val mutableUpdate = MutableStateFlow<UpdateState>(UpdateState.Idle)
+    val update = mutableUpdate.asStateFlow()
+
+    /** One check against GitHub Releases. Manual (button) or automatic (once a day on app open);
+     * never during a session — the phone is on the car's P2P Wi-Fi then and mobile data is not relied on. */
+    fun checkForUpdate() {
+        if (mutableUpdate.value is UpdateState.Checking) return
+        mutableUpdate.value = UpdateState.Checking
+        viewModelScope.launch(Dispatchers.IO) {
+            val result = UpdateCheck.check(getApplication())
+            updatePrefs.edit().putLong("last_checked_ms", System.currentTimeMillis()).apply()
+            mutableUpdate.value = when (result) {
+                is UpdateCheckResult.UpToDate -> UpdateState.UpToDate(result.version)
+                is UpdateCheckResult.Available -> UpdateState.Available(result.version, result.url)
+                is UpdateCheckResult.Failed -> UpdateState.Failed(result.reason)
+            }
+        }
+    }
+
+    private fun maybeCheckForUpdate() {
+        if (projection.active) return
+        val last = updatePrefs.getLong("last_checked_ms", 0L)
+        if (System.currentTimeMillis() - last < 24 * 60 * 60 * 1000L) return
+        checkForUpdate()
     }
 
     /**
@@ -681,7 +711,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         val video = projection.stream.value
         appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (own panel, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
-        appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}")
+        appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}; reduce bass clipping: ${if (projection.quality.reduceClipping.value) "ON" else "OFF"}")
         appendLine("Last car-found alert: ${AutoConnectService.lastAlertAt(getApplication()).let { if (it == 0L) "never" else java.time.Instant.ofEpochMilli(it).toString() }}")
         appendLine("Auto-reconnect: ${if (reconnecting) "attempt $reconnectAttempts of $maxReconnectAttempts after a drop" else "idle"}")
         appendLine("Quick connect: saved keys=${quickStore.peerCount()}")
@@ -863,6 +893,8 @@ class MainActivity : ComponentActivity() {
     val externalHeadunit by model.projection.quality.externalHeadunit.collectAsStateWithLifecycle()
     val autoWatch by model.projection.quality.autoWatch.collectAsStateWithLifecycle()
     val keepFullFps by model.projection.quality.keepFullFpsWhenHot.collectAsStateWithLifecycle()
+    val reduceClipping by model.projection.quality.reduceClipping.collectAsStateWithLifecycle()
+    val updateState by model.update.collectAsStateWithLifecycle()
     val headunitPreview by model.headunitPreview.collectAsStateWithLifecycle()
     val forceLandscape by model.savings.landscape.collectAsStateWithLifecycle()
     val captureObservation by ProjectionService.observation.collectAsStateWithLifecycle()
@@ -1006,6 +1038,11 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
             HomeHeader(appName, version)
             StatusCard(status, busy = connecting || scanning)
+            if (updateState is UpdateState.Available) {
+                val available = updateState as UpdateState.Available
+                Text("Update available: ${available.version} — open Advanced options below for the download link",
+                    style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.primary)
+            }
             if (events.isNotEmpty()) {
                 Text("Recent activity", style = MaterialTheme.typography.titleMedium)
                 events.takeLast(3).reversed().forEach { line ->
@@ -1143,6 +1180,13 @@ class MainActivity : ComponentActivity() {
             }
             Text("When the phone gets hot it halves the video bitrate; at severe heat it also drops to 15 fps. " +
                 "Keeping 30 fps is smoother but the phone runs hotter, and Android itself may still slow the encoder.")
+            OutlinedButton(onClick = { model.projection.quality.setReduceClipping(!reduceClipping) },
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (reduceClipping) "Bass clipping: reduce volume −3 dB (softer bass, no breakup)" else "Bass clipping: full volume (breaks up on heavy bass)")
+            }
+            Text("Heavy bass breaks up on the Android Auto path because the captured signal runs hot and the car's CarLink sound clips it. " +
+                "Reducing the volume by 3 dB before encoding gives it headroom; turn the car volume up a notch to compensate. " +
+                "Flip it on during a bass-heavy song and compare — the toggle itself is the test.")
             if (Build.VERSION.SDK_INT >= 34) {
                 OutlinedButton(onClick = { showCaptureGuide = true }, enabled = !probeRunning, modifier = Modifier.fillMaxWidth()) { Text("Share an app (experimental)") }
             }
@@ -1176,6 +1220,23 @@ class MainActivity : ComponentActivity() {
             Text("RTSP: ${rtspSession.stage} ${rtspSession.detail}")
             Text("Video: ${videoStream.stage} ${videoStream.detail} • ${videoStream.accessUnits} frames • ${videoStream.datagrams} RTP")
             Text("Audio: ${videoStream.audio} • ${videoStream.audioFrames} AAC frames")
+            Text("Updates", style = MaterialTheme.typography.titleMedium)
+            when (val checked = updateState) {
+                is UpdateState.Available -> {
+                    Text("A newer build is out: ${checked.version}. It installs over this one in place — same signing key, settings and QUICK keys kept.")
+                    Button(onClick = {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(checked.url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                    }, modifier = Modifier.fillMaxWidth()) { Text("Open the release page to download ${checked.version}") }
+                }
+                is UpdateState.UpToDate -> Text("You're on the latest build (${checked.version}).")
+                is UpdateState.Failed -> {
+                    Text("Could not check for updates: ${checked.reason}. Check the connection and try again.")
+                    OutlinedButton(onClick = { model.checkForUpdate() }, modifier = Modifier.fillMaxWidth()) { Text("Check for updates") }
+                }
+                is UpdateState.Checking -> Text("Checking GitHub Releases…")
+                is UpdateState.Idle -> OutlinedButton(onClick = { model.checkForUpdate() }, modifier = Modifier.fillMaxWidth()) { Text("Check for updates") }
+            }
+            Text("The app also checks once a day when it opens (never during a drive). It only reports a newer build — nothing downloads or installs by itself.")
             Text("AUTH channel: ${authProbe.stage} • ${authProbe.detail}")
             Text("AUTH request: ${authExchange.stage} • ${authExchange.detail}")
             Text("Find ICCOA receiver", style = MaterialTheme.typography.titleLarge)

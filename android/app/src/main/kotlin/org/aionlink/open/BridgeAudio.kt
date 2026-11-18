@@ -13,6 +13,8 @@ class BridgeAudio(
     onFrame: (ByteArray, Long) -> Unit,
     onError: (String) -> Unit,
     onLevel: (Int) -> Unit = {},
+    /** Read on every chunk: when true the pump attenuates before encoding (see [AacPump.scaleForClipping]). */
+    reduceClipping: () -> Boolean = { false },
 ) : AutoCloseable {
     private val pipe = ParcelFileDescriptor.createPipe()
     private val input = FileInputStream(pipe[0].fileDescriptor)
@@ -21,7 +23,7 @@ class BridgeAudio(
         private set
     val writeEnd: ParcelFileDescriptor get() = pipe[1]
 
-    private val pump = AacPump({ buffer, size -> read(buffer, size) }, onFrame, { if (!closed) onError(it) }, onLevel)
+    private val pump = AacPump({ buffer, size -> read(buffer, size) }, onFrame, { if (!closed) onError(it) }, onLevel, reduceClipping)
 
     fun start() = pump.start()
 

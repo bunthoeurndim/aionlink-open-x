@@ -11,6 +11,7 @@ import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
@@ -20,7 +21,10 @@ import kotlinx.coroutines.flow.asStateFlow
 /** What the car dashboard shows; kept in memory only and never exported. */
 data class CarInfo(
     val mediaTitle: String? = null, val mediaArtist: String? = null, val mediaPlaying: Boolean = false,
-    val mediaApp: String? = null, val navTitle: String? = null, val navText: String? = null, val navIcon: Bitmap? = null
+    val mediaApp: String? = null, val navTitle: String? = null, val navText: String? = null, val navIcon: Bitmap? = null,
+    val mediaArt: Bitmap? = null, val mediaDurationMs: Long = 0L, val mediaPositionMs: Long = 0L,
+    /** [android.os.SystemClock.elapsedRealtime] when [mediaPositionMs] was read, so the dashboard can advance it. */
+    val mediaPositionAtMs: Long = 0L
 )
 
 /**
@@ -91,11 +95,26 @@ class CarInfoListener : NotificationListenerService() {
         val label = c?.packageName?.let { name ->
             try { packageManager.getApplicationLabel(packageManager.getApplicationInfo(name, 0)).toString() } catch (_: Exception) { null }
         }
+        // Album art: prefer the full art, fall back to the display icon; scaled down so the
+        // dashboard holds one small bitmap, not a full-resolution cover. Live streams have no
+        // duration, so the dashboard hides the progress bar for them.
+        val art = try {
+            (metadata?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+                ?: metadata?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON))?.let { bmp ->
+                val scale = minOf(240f / bmp.width, 240f / bmp.height)
+                if (scale < 1f) Bitmap.createScaledBitmap(bmp, (bmp.width * scale).toInt(), (bmp.height * scale).toInt(), true) else bmp
+            }
+        } catch (_: Exception) { null }
+        val state = c?.playbackState
         mutableInfo.value = mutableInfo.value.copy(
             mediaTitle = metadata?.getString(MediaMetadata.METADATA_KEY_TITLE),
             mediaArtist = metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM_ARTIST),
-            mediaPlaying = c?.playbackState?.state == PlaybackState.STATE_PLAYING,
-            mediaApp = label)
+            mediaPlaying = state?.state == PlaybackState.STATE_PLAYING,
+            mediaApp = label,
+            mediaArt = art,
+            mediaDurationMs = metadata?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L,
+            mediaPositionMs = (state?.position ?: -1L).coerceAtLeast(0L),
+            mediaPositionAtMs = SystemClock.elapsedRealtime())
     }
 
     override fun onNotificationPosted(notification: StatusBarNotification) {

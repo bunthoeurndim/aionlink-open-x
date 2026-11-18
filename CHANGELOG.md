@@ -1,5 +1,11 @@
 # Changes
 
+## 0.42.0.48-research — 2026-11-18
+
+- Reduce bass clipping (toggle in Advanced options): the audio is attenuated by 3 dB before AAC encoding, on both the mirror and Android Auto paths, so heavy bass no longer breaks up on the car's CarLink sound. Flip it on during a bass-heavy song and compare — the toggle itself is the test; turn the car volume up a notch to compensate.
+- Check for updates: Advanced options checks GitHub Releases for a newer build (also once a day when the app opens, never during a drive) and shows "Update available" with a link to the release page. Nothing downloads or installs by itself.
+- Dashboard: the media card now shows the album art and a track progress bar.
+
 ## 0.42.0.47-research — 2026-11-17
 
 - Auto-reconnect after a drop: if a live session ends unexpectedly (network error, the car closes it, or the P2P link drops), the app retries by itself with QUICK (no code), max 3 attempts (right away, +15 s, +45 s), then falls back to the car watch. Never on a user Stop.
