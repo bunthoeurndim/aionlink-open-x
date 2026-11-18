@@ -1,5 +1,41 @@
 # Changes
 
+## 0.42.0.47-research — 2026-11-17
+
+- Auto-reconnect after a drop: if a live session ends unexpectedly (network error, the car closes it, or the P2P link drops), the app retries by itself with QUICK (no code), max 3 attempts (right away, +15 s, +45 s), then falls back to the car watch. Never on a user Stop.
+- Diagnostics export shows "Auto-reconnect: attempt N of 3 / idle".
+
+## 0.42.0.46-research — 2026-11-17
+
+- Rebrand to AionLink Open X: new name and logo (original A mark with the X blended into the road, a small i60 SUV, and the chain link over the car), new launcher icon on all densities. Package name unchanged (`org.aionlink.open.lab`), so settings and QUICK keys are kept.
+
+## 0.42.0.45-research — 2026-11-17
+
+- The car watch survives the car ending a session, a missed auto-scan, and the 10-minute alert cooldown; it restarts itself in all of those cases.
+- AAC audio bitrate raised from 128 kbps to 256 kbps.
+- Advanced options offers an "Allow full-screen alerts" button when the permission is not granted, and the diagnostics export shows the last car-found alert.
+
+## 0.42.0.44-research — 2026-11-16
+
+- The car watch restarts itself when the app opens while idle, when a session ends, and after an app update (it used to stay dead until the toggle was touched again).
+
+## 0.42.0.43-research — 2026-11-16
+
+- Every build now carries its version in the file name (`aionlink-open-x-0.42.0.<code>-research.apk`) so builds can be tracked.
+
+## 0.42.0-research — 2026-11-10–16
+
+- Simplified home and advanced screens; OpenHeadunit Lite as the Android Auto path.
+- Quick reconnect without the code (QUICK): the first connection saves a long-term key for the car, later connections skip the code dialog. Proven in the car on 2026-11-16 — the i60 accepts QUICK.
+- Car watch and projection mode picker: the app watches in the background for the car and notifies when it is near; the home screen picks Mirror, Dashboard, or Lite for the next connection (Lite default).
+- Steering-wheel media keys: the car's UIBC key events go over the bridge to Android Auto (mirror/dashboard: to the phone's media session). The car was later found to send no presses at all (2026-11-17) — a car firmware limitation, not an app gap.
+- Full-screen alert: when the watch finds the car, the notification opens the app by itself (needs the full-screen alert permission and the screen off or locked).
+- The code dialog only appears on the PIN path, and closing it no longer kills a live QUICK session.
+- The 5277 head-unit server probe was removed: it parked the Android Auto server and broke video (0 frames) on the next Lite connection.
+- Wi-Fi lock held while the car link is up, to reduce P2P drops.
+- Full-bitrate video in car mode (11 Mbps instead of the 3.9 Mbps relay bitrate).
+- "Keep 30 fps when hot" toggle: at thermal SEVERE the bitrate still halves, but the frame rate stays at 30 fps.
+
 ## 0.41.0-research — 2026-11-08
 
 - With Open Headunit as the source, Android Auto sound reaches AionLink through the bridge (PCM pipe) and is sent to the car in AAC; it no longer plays on the phone and needs no audio capture.

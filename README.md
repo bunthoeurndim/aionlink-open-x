@@ -97,6 +97,8 @@ are research builds (`-research`).
 
 ## Using it
 
+Download the latest APK from the [Releases page](https://github.com/bunthoeurndim/aionlink-open-x/releases) — no sign-in needed. OpenHeadunit Lite has its own [releases](https://github.com/bunthoeurndim/open-headunit/releases) in its fork.
+
 ### What you need
 
 1. **AionLink Open X** (`org.aionlink.open.lab`), built from this repository.
