@@ -322,7 +322,7 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
 
     /** YouTube is parked-only: ask once per dashboard session, then load the tapped link. */
     private fun showYouTubeConfirm(url: String) {
-        if (youtubeConfirmed) { appsWebView?.loadUrl(url); return }
+        if (youtubeConfirmed) { appsWebView?.let { AppsWebView.loadYouTube(it, url) }; return }
         pendingYouTubeUrl = url
         confirmCard.removeAllViews()
         confirmCard.addView(text(30f, bold = true).apply {
@@ -340,7 +340,7 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(24) }
             addView(textButton("Parked — open YouTube") {
                 youtubeConfirmed = true; confirmCard.visibility = View.GONE
-                pendingYouTubeUrl?.let { appsWebView?.loadUrl(it) }; pendingYouTubeUrl = null
+                pendingYouTubeUrl?.let { u -> appsWebView?.let { AppsWebView.loadYouTube(it, u) } }; pendingYouTubeUrl = null
             })
             addView(textButton("Cancel") { confirmCard.visibility = View.GONE; pendingYouTubeUrl = null })
         })

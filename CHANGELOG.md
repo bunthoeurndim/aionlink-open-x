@@ -1,5 +1,11 @@
 # Changes
 
+## 0.42.0.50-research — 2026-11-23
+
+- Dashboard web apps fixed after the first preview test: YouTube now loads with a TV user agent, so youtube.com/tv shows the TV interface instead of redirecting to youtube.com; Google Maps stays in the WebView (its redirect to the Maps app is rewritten to the plain web address); the weather tile is now a live Open-Meteo card for Phnom Penh instead of the plain-text wttr.in page.
+- Maps is now two tiles: a Leaflet + OpenStreetMap page centred on Phnom Penh (no account, no key, drag to pan, + / − to zoom) and Google Maps.
+- Preview top bar: the note is shortened to "Preview" so it no longer wraps in portrait.
+
 ## 0.42.0.49-research — 2026-11-23
 
 - Dashboard Apps launcher: a "▦ Apps" button on the dashboard opens a web launcher on the car screen, with tiles for YouTube, Maps, and Weather. Tap a tile and that web app opens full-screen; Home returns to the launcher, Close returns to the dashboard. YouTube asks once per session to confirm the car is parked.

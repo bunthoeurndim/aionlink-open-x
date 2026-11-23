@@ -42,7 +42,7 @@ class AppsPreviewActivity : ComponentActivity() {
         })
         bar.addView(topButton("⌂ Home") { webView?.let(AppsWebView::loadLauncher) })
         bar.addView(TextView(this).apply {
-            text = "Preview — same pages as the car"
+            text = "Preview"
             setTextColor(0xFF9FB3C8.toInt()); textSize = 16f; gravity = Gravity.CENTER_VERTICAL
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(16), 0, 0, 0) }
         })

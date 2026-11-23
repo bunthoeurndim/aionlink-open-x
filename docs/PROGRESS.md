@@ -3072,3 +3072,19 @@ queda fuera por ahora: necesita escribir usuario y contraseña y en el coche
 no hay teclado. El WebView se crea al primer toque, se pausa al cerrar y se
 destruye al final de la sesión. Pendiente la prueba en el coche (que el
 WebView se vea en la pantalla virtual) y la vista previa en el teléfono.
+
+## Correcciones del lanzador web — build 50 (2026-11-23)
+
+La vista previa de la build 49 mostró tres fallos: YouTube redirigía de /tv a youtube.com
+(la página de "You are being directed") porque el WebView se identificaba como móvil;
+Google Maps respondía con un enlace intent:// a la app de Maps, que el WebView no puede
+cargar (ERR_UNKNOWN_URL_SCHEME); y wttr.in era solo texto sin formato. La corrección:
+YouTube carga con un agente de usuario de TV (solo para YouTube, el resto sigue con el
+agente móvil); el enlace intent:// se reescribe a su dirección https, así Google Maps se
+queda dentro del WebView (abrir la app en el teléfono no serviría en la pantalla del
+coche); el tiempo ahora es un widget de Open-Meteo en el propio lanzador (sin clave, con
+crédito a Open-Meteo). Mapas son ahora dos mosaicos: una página Leaflet + OpenStreetMap
+centrada en Phnom Penh (sin clave) y Google Maps. Se investigaron proyectos abiertos
+(SmartTube, Native Alpha, Android-AdvancedWebView, Leaflet, Open-Meteo): SmartTube y
+Native Alpha son apps completas, no embedibles; la lección es el enfoque de cliente de
+TV. Pendiente la prueba de la vista previa en el teléfono y en el coche aparcado.

@@ -9,12 +9,16 @@
   body { background: #0B0F14; color: #fff; font-family: sans-serif; padding: 32px; }
   h1 { font-size: 40px; margin-bottom: 8px; }
   p.sub { color: #9FB3C8; font-size: 22px; margin-bottom: 32px; }
-  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-  a.tile { display: block; background: #111827; border-radius: 28px; padding: 36px 28px; text-decoration: none; color: #fff; min-height: 300px; }
-  a.tile:active { background: #1E293B; }
+  .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
+  a.tile, div.tile { display: block; background: #111827; border-radius: 28px; padding: 36px 28px; text-decoration: none; color: #fff; min-height: 300px; }
+  a.tile:active, div.tile:active { background: #1E293B; }
   .glyph { font-size: 84px; line-height: 1; }
   .label { font-size: 36px; font-weight: bold; margin-top: 20px; }
   .desc { color: #CBD5E1; font-size: 22px; margin-top: 10px; line-height: 1.4; }
+  .temp { font-size: 84px; font-weight: bold; line-height: 1; margin-top: 12px; }
+  .cond { font-size: 26px; margin-top: 14px; line-height: 1.3; }
+  .hours { color: #CBD5E1; font-size: 22px; margin-top: 10px; line-height: 1.5; }
+  .credit { color: #64748B; font-size: 18px; margin-top: 14px; }
 </style>
 </head>
 <body>
@@ -26,16 +30,55 @@
       <div class="label">YouTube</div>
       <div class="desc">Videos on the car screen. Parked only.</div>
     </a>
-    <a class="tile" href="https://www.google.com/maps">
+    <a class="tile" href="file:///android_asset/carhome/map.html">
       <div class="glyph" style="color:#34A853">&#8982;</div>
-      <div class="label">Maps</div>
-      <div class="desc">Browse the map and directions.</div>
+      <div class="label">Map</div>
+      <div class="desc">OpenStreetMap around Phnom Penh. Drag to pan, + / − to zoom.</div>
     </a>
-    <a class="tile" href="https://wttr.in/Phnom_Penh">
-      <div class="glyph" style="color:#F59E0B">&#9728;</div>
+    <a class="tile" href="https://www.google.com/maps">
+      <div class="glyph" style="color:#4285F4">&#9873;</div>
+      <div class="label">Google Maps</div>
+      <div class="desc">Google Maps in the car. Search and directions.</div>
+    </a>
+    <div class="tile" id="weather" onclick="loadWeather()">
       <div class="label">Weather</div>
-      <div class="desc">Phnom Penh weather, right now.</div>
-    </a>
+      <div class="temp" id="wx-temp">--°</div>
+      <div class="cond" id="wx-cond">Phnom Penh — tap to refresh</div>
+      <div class="hours" id="wx-hours"></div>
+      <div class="credit">Data: Open-Meteo</div>
+    </div>
   </div>
+<script>
+  // WMO weather codes from the Open-Meteo API.
+  var WMO = {0:'Clear sky',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',51:'Light drizzle',53:'Drizzle',55:'Drizzle',56:'Freezing drizzle',57:'Freezing drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',66:'Freezing rain',67:'Freezing rain',71:'Light snow',73:'Snow',75:'Heavy snow',77:'Snow grains',80:'Light showers',81:'Showers',82:'Heavy showers',85:'Snow showers',86:'Snow showers',95:'Thunderstorm',96:'Thunderstorm',99:'Thunderstorm'};
+  function loadWeather() {
+    document.getElementById('wx-cond').textContent = 'Loading…';
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=11.55&longitude=104.92&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code&hourly=temperature_2m,precipitation_probability&forecast_days=1&timezone=Asia%2FPhnom_Penh')
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var c = d.current || {};
+        var label = WMO[c.weather_code] || '';
+        document.getElementById('wx-temp').textContent = Math.round(c.temperature_2m) + '°';
+        document.getElementById('wx-cond').textContent = 'Phnom Penh — ' + label + ' · wind ' + Math.round(c.wind_speed_10m) + ' km/h · ' + Math.round(c.relative_humidity_2m) + '% humidity';
+        var times = (d.hourly && d.hourly.time) || [];
+        var now = new Date();
+        var idx = 0;
+        for (var i = 0; i < times.length; i++) { if (new Date(times[i]) >= now) { idx = i; break; } }
+        var line = '';
+        for (var k = 0; k < 3 && idx + k < times.length; k++) {
+          var t = new Date(times[idx + k]);
+          line += (k ? '  ·  ' : '') + t.getHours() + ':00 ' + Math.round(d.hourly.temperature_2m[idx + k]) + '°';
+          if (d.hourly.precipitation_probability) line += ' (' + d.hourly.precipitation_probability[idx + k] + '% rain)';
+        }
+        document.getElementById('wx-hours').textContent = line;
+      })
+      .catch(function(){
+        document.getElementById('wx-temp').textContent = '--°';
+        document.getElementById('wx-cond').textContent = 'Phnom Penh — weather unavailable, tap to retry';
+        document.getElementById('wx-hours').textContent = '';
+      });
+  }
+  loadWeather();
+</script>
 </body>
 </html>
