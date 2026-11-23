@@ -211,9 +211,9 @@ class DashboardBridge(
 
     private fun bluetoothLabel(): String {
         return try {
-            val adapter = appContext.getSystemService(BluetoothManager::class.java)?.adapter ?: return "—"
-            if (adapter.getProfileConnectionState(BluetoothProfile.A2DP) != BluetoothProfile.STATE_CONNECTED) return "—"
-            adapter.getConnectedDevices(BluetoothProfile.A2DP).firstOrNull()?.name ?: "Connected"
+            val manager = appContext.getSystemService(BluetoothManager::class.java) ?: return "—"
+            if (manager.adapter?.getProfileConnectionState(BluetoothProfile.A2DP) != BluetoothProfile.STATE_CONNECTED) return "—"
+            manager.getConnectedDevices(BluetoothProfile.A2DP).firstOrNull()?.name ?: "Connected"
         } catch (_: SecurityException) { "—" }
         catch (_: Exception) { "—" }
     }
