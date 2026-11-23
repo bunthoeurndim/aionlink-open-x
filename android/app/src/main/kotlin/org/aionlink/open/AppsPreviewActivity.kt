@@ -9,6 +9,7 @@ import android.webkit.WebView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
+import androidx.activity.OnBackPressedCallback
 
 /**
  * On-phone preview of the dashboard web apps: the same launcher page and the same WebView
@@ -21,10 +22,12 @@ class AppsPreviewActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        onBackPressedDispatcher.addCallback(this) {
-            val web = webView
-            if (web != null && web.canGoBack()) web.goBack() else finish()
-        }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                val web = webView
+                if (web != null && web.canGoBack()) web.goBack() else this@AppsPreviewActivity.finish()
+            }
+        })
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(0xFF0B0F14.toInt())

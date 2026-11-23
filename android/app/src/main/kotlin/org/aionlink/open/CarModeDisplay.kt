@@ -244,7 +244,7 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
     }
     private val appsButton = textButton("▦  Apps") { showApps() }
     private val dashboardRow = LinearLayout(context).apply {
-        orientation = HORIZONTAL
+        orientation = LinearLayout.HORIZONTAL
         setBackgroundColor(0xFF0B0F14.toInt())
         setPadding(dp(32), dp(32), dp(32), dp(32))
         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
@@ -255,11 +255,11 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
     }
     private val webColumn = LinearLayout(context).apply {
-        orientation = VERTICAL
+        orientation = LinearLayout.VERTICAL
         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
     }
     private val confirmCard = LinearLayout(context).apply {
-        orientation = VERTICAL; gravity = Gravity.CENTER
+        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
         setPadding(dp(32), dp(32), dp(32), dp(32))
         background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0xFF111827.toInt()) }
         layoutParams = FrameLayout.LayoutParams(dp(700), FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER)
@@ -274,7 +274,7 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
         dashboardRow.addView(card(1.3f).apply {
             addView(mediaArt); addView(mediaApp); addView(mediaTitle); addView(mediaArtist); addView(mediaProgress)
             addView(LinearLayout(context).apply {
-                orientation = HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(24), 0, 0)
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(24), 0, 0)
                 addView(button("⏮") { CarInfoListener.previous() }); addView(playButton); addView(button("⏭") { CarInfoListener.next() })
             })
         })
@@ -336,7 +336,7 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
         })
         confirmCard.addView(LinearLayout(context).apply {
-            orientation = HORIZONTAL; gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
             layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(24) }
             addView(textButton("Parked — open YouTube") {
                 youtubeConfirmed = true; confirmCard.visibility = View.GONE
@@ -348,7 +348,7 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
     }
 
     private fun topBar() = LinearLayout(context).apply {
-        orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(24), dp(16), dp(24), dp(16))
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
         addView(textButton("⌂ Home") { appsWebView?.let(AppsWebView::loadLauncher) })
@@ -429,13 +429,13 @@ class CarDashboardView(context: Context, private val onAppsNote: (String) -> Uni
     }
 
     private fun column(weight: Float, vararg views: View) = LinearLayout(context).apply {
-        orientation = VERTICAL; gravity = Gravity.CENTER_VERTICAL
+        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_VERTICAL
         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
         views.forEach(::addView)
     }
 
     private fun card(weight: Float) = LinearLayout(context).apply {
-        orientation = VERTICAL; gravity = Gravity.CENTER
+        orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
         setPadding(dp(28), dp(28), dp(28), dp(28))
         background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0xFF111827.toInt()) }
         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(16), 0, 0, 0) }
