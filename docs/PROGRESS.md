@@ -3088,3 +3088,36 @@ centrada en Phnom Penh (sin clave) y Google Maps. Se investigaron proyectos abie
 (SmartTube, Native Alpha, Android-AdvancedWebView, Leaflet, Open-Meteo): SmartTube y
 Native Alpha son apps completas, no embedibles; la lección es el enfoque de cliente de
 TV. Pendiente la prueba de la vista previa en el teléfono y en el coche aparcado.
+
+## Panel web completo — build 51 (2026-11-23)
+
+El panel nativo (reloj + tarjeta de música + tarjeta de navegación) se sustituye por
+el panel web diseñado en el chat de diseño, basado en la foto que envió la dueña: la
+página local `assets/carhome/dashboard.html` (rail izquierdo, búsqueda + chips, rejilla
+de apps, reloj grande, velocímetro, fecha, tiempo, Now Playing). La adaptación se hizo
+con un script desde la exportación del prototipo, con comprobación de sintaxis del
+JavaScript y verificación de que cada `getElementById` existe; la sección explicativa
+del puente (fuera del panel) se quitó, así como los botones de simulación.
+
+Puente nativo (`DashboardBridge.kt`, `@JavascriptInterface` como `window.AndroidBridge`):
+solo lo ve la página local del panel — el WebView fija su marco principal al archivo
+local y las páginas de terceros corren en el iframe del panel, otro origen sin acceso
+al puente. El puente da batería, carga, Wi-Fi, red móvil, Bluetooth, velocidad GPS,
+música (título, artista, carátula, posición, reproducir/pausa/siguiente/anterior/
+buscar), navegación de Maps/Waze y abrir apps en el teléfono o el marcador. La
+velocidad GPS necesita ACCESS_FINE_LOCATION (el manifiesto la limitaba a SDK 32 por
+el escaneo BLE; se quitó el límite) y se pide en Advanced options o al abrir la vista
+previa; sin permiso el velocímetro muestra --. El viaje (tiempo, distancia, media)
+se acumula en la página desde la velocidad GPS. La música abre sola la página Media
+al empezar a sonar (el nativo empuja `PhoneBridge._push('media')` al cambiar el estado).
+
+YouTube sigue siendo solo aparcado: la confirmación una vez por sesión ahora vive en
+la propia página (pantalla de bloqueo con "Parked — open"). Los sitios que rechazan el
+marco ofrecen abrir la app real en el teléfono. La vista previa del teléfono ahora
+muestra el panel nuevo con el mismo puente y GPS. El lanzador de la build 49 queda
+sustituido por la rejilla del panel; sus archivos (`index.html`, `map.html`) quedan
+en el repo sin uso. Límites conocidos: el cuadro de búsqueda no tiene teclado en el
+coche (los chips sí funcionan; escribir sí funciona en la vista previa), el vídeo a
+pantalla completa aún no está soportado (reproduce en línea) y un enlace de Maps fuera
+de la vista incrustada puede dar error dentro del marco. Pendiente la prueba de la
+vista previa en el teléfono y en el coche aparcado.

@@ -50,6 +50,7 @@ class CarInfoListener : NotificationListenerService() {
         }
         fun next() = controller?.transportControls?.skipToNext()
         fun previous() = controller?.transportControls?.skipToPrevious()
+        fun seekTo(positionMs: Long) = controller?.transportControls?.seekTo(positionMs.coerceAtLeast(0L))
     }
 
     private val main = Handler(Looper.getMainLooper())

@@ -11,6 +11,12 @@ import android.webkit.WebViewClient
  * dashboard and the on-phone preview, so both show exactly the same pages with the same settings.
  * Stage 1 has no JavaScript bridge: the pages cannot touch the phone at all.
  *
+ * Build 51 replaces the native dashboard with the full web dashboard (assets/carhome/dashboard.html).
+ * That page DOES have a bridge — DashboardBridge, injected as window.AndroidBridge — but only
+ * the local dashboard page ever sees it: createDashboard pins the WebView's main frame to the
+ * local file, and the third-party pages the dashboard opens run in the dashboard's own iframe,
+ * a different origin that cannot reach the bridge.
+ *
  * Build 50 fixes, from the first preview test:
  * - YouTube: youtube.com/tv redirects to youtube.com when the client looks like a mobile
  *   browser, so YouTube loads get a desktop (TV) user agent; everything else keeps the
@@ -25,6 +31,7 @@ import android.webkit.WebViewClient
 object AppsWebView {
     const val LAUNCHER_URL = "file:///android_asset/carhome/index.html"
     const val MAP_URL = "file:///android_asset/carhome/map.html"
+    const val DASHBOARD_URL = "file:///android_asset/carhome/dashboard.html"
 
     /** Desktop Chrome: youtube.com/tv serves the TV interface to this instead of redirecting. */
     private const val TV_USER_AGENT =
@@ -67,6 +74,40 @@ object AppsWebView {
 
     /** Load the Leaflet map page with the mobile agent. */
     fun loadMap(view: WebView) { useMobileAgent(view); view.loadUrl(MAP_URL) }
+
+    /**
+     * The full web dashboard. The bridge is injected here, so it exists only on this
+     * WebView; the main frame is pinned to the local dashboard file, so no third-party
+     * page can ever load where the bridge lives. Autoplay is allowed without a tap
+     * because the owner already tapped a video tile to start it; pinch zoom stays off.
+     */
+    fun createDashboard(context: Context, bridge: DashboardBridge): WebView {
+        mobileAgent = WebSettings.getDefaultUserAgent(context)
+        return WebView(context).apply {
+            settings.javaScriptEnabled = true
+            settings.domStorageEnabled = true
+            settings.allowUniversalAccessFromFileURLs = true
+            settings.mediaPlaybackRequiresUserGesture = false
+            settings.setSupportZoom(false)
+            settings.builtInZoomControls = false
+            settings.useWideViewPort = true
+            settings.loadWithOverviewMode = true
+            addJavascriptInterface(bridge, "AndroidBridge")
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
+                    val url = request.url.toString()
+                    if (request.isForMainFrame) return url != DASHBOARD_URL
+                    // Subframes are the dashboard page's own iframe (YouTube, Maps, …).
+                    // A Maps intent:// cannot be retargeted into the iframe from here, and
+                    // the dashboard's Maps links are embed URLs that do not redirect to one.
+                    return false
+                }
+            }
+        }
+    }
+
+    /** Load the web dashboard. */
+    fun loadDashboard(view: WebView) { view.loadUrl(DASHBOARD_URL) }
 
     /** Load a YouTube page with the TV agent, so /tv serves the TV interface. */
     fun loadYouTube(view: WebView, url: String) { view.settings.userAgentString = TV_USER_AGENT; view.loadUrl(url) }

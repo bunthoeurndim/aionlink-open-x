@@ -325,7 +325,8 @@ class ProjectionSession(private val context: Context, private val savings: Phone
                             streamer.onAccessUnit(unit, ptsUs, key); report()
                         }, onError = { error -> main.post { stopStream(error) } }, externalContent = externalHeadunit,
                             keepFullFpsWhenHot = quality.keepFullFpsWhenHot.value,
-                            onNote = { note -> event(note) }).also { car ->
+                            onNote = { note -> event(note) },
+                            audioRoute = { if (audioState == "AAC" || audioState == "AAC_PUENTE_OPEN_HEADUNIT") "Via AionLink" else "Car speakers via Bluetooth" }).also { car ->
                             carDisplay = car; car.start()
                             car.externalInputSurface()?.let { surface ->
                                 val sound = if (audioFromBridge) startBridgeAudio(streamer) else null

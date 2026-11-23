@@ -1,5 +1,14 @@
 # Changes
 
+## 0.42.0.51-research — 2026-11-23
+
+- New web dashboard replaces the native dashboard: the light widget layout from the design (left icon rail, destination search + chips, app grid, big clock, GPS speed gauge, date, weather, Now Playing). It is a single local page (`assets/carhome/dashboard.html`, no server) shown on the car screen by one WebView.
+- Phone bridge: the dashboard reads live phone data through a native bridge that only the local dashboard page can see — battery %, charging, Wi-Fi, mobile, Bluetooth, GPS speed, the track playing on the phone (title, artist, album art, position) with play / pause / skip / seek, and the Maps or Waze navigation instruction. When music starts playing, the Media page opens by itself. The bridge never touches the car session.
+- GPS speed: the gauge uses the phone's GPS (new location permission, asked once from Advanced options or when the preview opens; without it the gauge shows --). Trip time, distance and average speed accumulate from GPS while driving and reset from the dashboard.
+- YouTube stays parked-only: video tiles ask once per dashboard session to confirm the car is parked, in the page itself. Sites that refuse to load inside a frame (TikTok, Instagram, X, …) offer to open the real app on the phone instead.
+- Preview on the phone now shows the new dashboard (same page, same bridge, same GPS speed) — Advanced options, "Preview the new dashboard on this phone (no car needed)". The old Apps launcher page is superseded by the dashboard's app grid; its files stay in the repo unused.
+- Known limits: the search box has no keyboard on the car (the chips work by tap; typing works in the phone preview); fullscreen video is not supported yet (videos play inline); a Maps link that leaves the embed view can show an error inside the frame instead of opening the Maps app.
+
 ## 0.42.0.50-research — 2026-11-23
 
 - Dashboard web apps fixed after the first preview test: YouTube now loads with a TV user agent, so youtube.com/tv shows the TV interface instead of redirecting to youtube.com; Google Maps stays in the WebView (its redirect to the Maps app is rewritten to the plain web address); the weather tile is now a live Open-Meteo card for Phnom Penh instead of the plain-text wttr.in page.

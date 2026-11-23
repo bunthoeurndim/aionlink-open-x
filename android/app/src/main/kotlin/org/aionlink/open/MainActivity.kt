@@ -709,8 +709,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         appendLine("Receiver wfd_uibc_capability=${rtsp.sinkUibc}")
         appendLine(projection.auxiliary.value)
         val video = projection.stream.value
-        appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (own panel, screen off)" else "MIRROR"}; " +
+        appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (web dashboard, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
+        appendLine("Dashboard: web; GPS speed=${if (getApplication().checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) "allowed" else "not allowed — gauge shows --"}")
         appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}; reduce bass clipping: ${if (projection.quality.reduceClipping.value) "ON" else "OFF"}")
         appendLine("Last car-found alert: ${AutoConnectService.lastAlertAt(getApplication()).let { if (it == 0L) "never" else java.time.Instant.ofEpochMilli(it).toString() }}")
         appendLine("Auto-reconnect: ${if (reconnecting) "attempt $reconnectAttempts of $maxReconnectAttempts after a drop" else "idle"}")
@@ -906,6 +907,9 @@ class MainActivity : ComponentActivity() {
         model.event(if (granted) "Audio permission granted for playback capture" else "Audio permission denied; will project without sound")
         val manager = captureContext.getSystemService(android.media.projection.MediaProjectionManager::class.java)
         capture.launch(manager.createScreenCaptureIntent())
+    }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        model.event(if (granted) "Location granted; the dashboard speed gauge uses phone GPS" else "Location denied; the dashboard speed shows -- instead of GPS speed")
     }
     val operationBusy = negotiation.busy || network.busy || authProbe.busy || authExchange.busy || cable.busy || inspection.stage in setOf(GattStage.CONNECTING, GattStage.LINK_CONNECTED, GattStage.DISCOVERING_SERVICES)
     val gattBusy = negotiation.busy || network.busy || network.stage == NetworkStage.CONNECTED || inspection.stage in setOf(GattStage.CONNECTING, GattStage.LINK_CONNECTED, GattStage.DISCOVERING_SERVICES)
@@ -1136,12 +1140,19 @@ class MainActivity : ComponentActivity() {
                 Text(if (carMode) "Mode: CAR (AionLink panel, phone screen off)" else "Mode: MIRROR (what the phone shows)")
             }
             if (carMode) {
-                Text("Car mode: the car shows a clock, music with controls, and Maps or Waze directions. You can turn off the phone screen after connecting. " +
+                Text("Car mode: the car shows the web dashboard — clock, GPS speed, music with controls, maps and apps. You can turn off the phone screen after connecting. " +
                     "Sound comes through the car's Bluetooth; if you also tap “Prepare capture”, sending it via AionLink is attempted.")
                 OutlinedButton(onClick = {
                     context.startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 }, modifier = Modifier.fillMaxWidth()) {
                     Text(if (CarInfoListener.granted(context)) "Music and navigation: access granted" else "Allow music and navigation (notification access)")
+                }
+                val locationGranted = context.checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (!locationGranted) {
+                    OutlinedButton(onClick = { locationPermission.launch(android.Manifest.permission.ACCESS_FINE_LOCATION) },
+                        modifier = Modifier.fillMaxWidth()) {
+                        Text("Allow GPS speed (location, for the dashboard speed gauge)")
+                    }
                 }
             } else Text("Before connecting, authorize screen capture. After AUTH, the phone listens on CONTROL and RTSP; video starts when the car sends PLAY.")
             Button(onClick = { audioPermission.launch(android.Manifest.permission.RECORD_AUDIO) }, enabled = !probeRunning,
@@ -1165,7 +1176,7 @@ class MainActivity : ComponentActivity() {
             if (carMode) {
                 OutlinedButton(onClick = { context.startActivity(Intent(context, AppsPreviewActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth()) {
-                    Text("Preview the dashboard web apps on this phone (no car needed)")
+                    Text("Preview the new dashboard on this phone (no car needed)")
                 }
             }
             Text("Android Auto", style = MaterialTheme.typography.titleMedium)

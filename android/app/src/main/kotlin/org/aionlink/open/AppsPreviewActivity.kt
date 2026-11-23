@@ -1,5 +1,7 @@
 package org.aionlink.open
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -10,24 +12,33 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 
 /**
- * On-phone preview of the dashboard web apps: the same launcher page and the same WebView
- * settings as the car dashboard, shown on this phone so the owner can try it without the car.
- * Touch, keyboard and pinch work here as on any phone screen; the car shows the same pages
- * through the single-pointer touch path, with no keyboard and no pinch.
+ * On-phone preview of the web dashboard: the same dashboard page, the same WebView
+ * settings and the same phone bridge as the car dashboard, shown on this phone so the
+ * owner can try it without the car. Touch, keyboard and pinch work here as on any phone
+ * screen; the car shows the same pages through the single-pointer touch path, with no
+ * keyboard and no pinch. GPS speed works here too, from the phone's own GPS.
  */
 class AppsPreviewActivity : ComponentActivity() {
     private var webView: WebView? = null
+    private var bridge: DashboardBridge? = null
+
+    private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                val web = webView
-                if (web != null && web.canGoBack()) web.goBack() else this@AppsPreviewActivity.finish()
+                this@AppsPreviewActivity.finish()
             }
         })
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(0xFF0B0F14.toInt())
@@ -37,10 +48,7 @@ class AppsPreviewActivity : ComponentActivity() {
             orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), dp(12), dp(16), dp(12))
         }
-        bar.addView(topButton("‹ Back") {
-            webView?.let { if (it.canGoBack()) it.goBack() else AppsWebView.loadLauncher(it) }
-        })
-        bar.addView(topButton("⌂ Home") { webView?.let(AppsWebView::loadLauncher) })
+        bar.addView(topButton("‹ Back") { finish() })
         bar.addView(TextView(this).apply {
             text = "Preview"
             setTextColor(0xFF9FB3C8.toInt()); textSize = 16f; gravity = Gravity.CENTER_VERTICAL
@@ -48,20 +56,23 @@ class AppsPreviewActivity : ComponentActivity() {
         })
         bar.addView(topButton("✕ Close") { finish() })
         root.addView(bar)
-        val web = AppsWebView.create(this, onYouTubeTap = null).apply {
+        val dashBridge = DashboardBridge(this)
+        bridge = dashBridge
+        val web = AppsWebView.createDashboard(this, dashBridge).apply {
             layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
         }
         webView = web
         root.addView(web)
-        AppsWebView.loadLauncher(web)
+        AppsWebView.loadDashboard(web)
         setContentView(root)
     }
 
-    override fun onResume() { super.onResume(); webView?.onResume() }
+    override fun onResume() { super.onResume(); bridge?.start(); webView?.onResume() }
 
-    override fun onPause() { webView?.onPause(); super.onPause() }
+    override fun onPause() { bridge?.stop(); webView?.onPause(); super.onPause() }
 
     override fun onDestroy() {
+        bridge?.stop()
         webView?.let { web ->
             web.stopLoading()
             (web.parent as? ViewGroup)?.removeView(web)
