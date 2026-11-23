@@ -18,6 +18,7 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebView
 import android.widget.FrameLayout
 import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
@@ -220,18 +221,18 @@ class CarDashboardView(
     private val audioRoute: () -> String = { "Car speakers via Bluetooth" },
 ) : FrameLayout(context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val bridge = DashboardBridge(
+    private val bridge: DashboardBridge = DashboardBridge(
         context, audioRoute,
         onOpenBrowser = { url ->
             AppsWebView.enterBrowserMode(webView, bridge, url)
             homeOverlay.visibility = View.VISIBLE
         },
     )
-    private val webView = AppsWebView.createDashboard(context, bridge).apply {
+    private val webView: WebView = AppsWebView.createDashboard(context, bridge).apply {
         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
     }
     /** ⌂ Home, shown only while the dashboard browser is open (third-party main document). */
-    private val homeOverlay = TextView(context).apply {
+    private val homeOverlay: TextView = TextView(context).apply {
         text = "⌂ Home"
         textSize = 22f
         setTextColor(Color.WHITE)
