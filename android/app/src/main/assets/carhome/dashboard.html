@@ -511,6 +511,123 @@
       }
       .toast.show{ opacity:1; transform:translate(-50%, 0); }
 
+      /* ============ Dynamic Island media pill (build 52) ============ */
+      .island{
+        position:fixed; top:14px; left:50%; transform:translateX(-50%);
+        z-index:70; background:#fff; color:#17181c; border-radius:999px;
+        box-shadow:0 18px 44px rgba(20,22,30,.30), 0 2px 8px rgba(20,22,30,.18);
+        overflow:hidden; cursor:pointer; width:560px; height:72px;
+        transition:width .45s cubic-bezier(0.32, 1.35, 0.45, 1), height .45s cubic-bezier(0.32, 1.35, 0.45, 1), border-radius .45s cubic-bezier(0.32, 1.35, 0.45, 1);
+      }
+      .island.full{ width:720px; height:320px; border-radius:28px; cursor:default; }
+      .island-layer{
+        position:absolute; inset:0; display:flex; align-items:center; gap:14px;
+        padding:0 14px 0 18px; opacity:0; pointer-events:none;
+        transition:opacity .25s ease .18s;
+      }
+      .island.pill .island-pill{ opacity:1; pointer-events:auto; }
+      .island.full .island-full{ opacity:1; pointer-events:auto; }
+      .island-art{ width:48px; height:48px; border-radius:12px; object-fit:cover; background:var(--card); flex:none; }
+      .island-text{ flex:1; min-width:0; }
+      .island-title{ display:block; font-size:17px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .island-artist{ display:block; font-size:13.5px; font-weight:600; color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .island-eq{ display:flex; align-items:flex-end; gap:3px; height:20px; flex:none; }
+      .island-eq i{ display:block; width:4px; border-radius:2px; background:#1db954; animation:eqBounce 0.9s ease-in-out infinite; }
+      .island-eq i:nth-child(1){ height:10px; }
+      .island-eq i:nth-child(2){ height:18px; animation-delay:.15s; }
+      .island-eq i:nth-child(3){ height:12px; animation-delay:.3s; }
+      .island.paused .island-eq i{ animation-play-state:paused; }
+      @keyframes eqBounce{ 0%,100%{ transform:scaleY(.5); } 50%{ transform:scaleY(1); } }
+      .island-btn{
+        width:64px; height:64px; border-radius:50%; background:#17181c; color:#fff;
+        display:flex; align-items:center; justify-content:center; font-size:19px; flex:none;
+      }
+      .island-full{ flex-direction:column; align-items:stretch; gap:12px; padding:20px 22px; }
+      .island-full-top{ display:flex; align-items:center; gap:16px; }
+      .island-art-big{ width:96px; height:96px; border-radius:18px; object-fit:cover; background:var(--card); flex:none; }
+      .island-full-text{ flex:1; min-width:0; }
+      .island-title-big{ font-size:24px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+      .island-artist-big{ font-size:16px; font-weight:600; color:var(--ink-2); margin-top:2px; }
+      .island-app{ font-size:13.5px; font-weight:700; color:var(--ink-3); margin-top:4px; }
+      .island-collapse{ width:56px; height:56px; border-radius:50%; background:var(--card); font-size:22px; flex:none; }
+      .island-progress-row{ display:flex; align-items:center; gap:12px; }
+      .island-progress-row .t{ font-size:14.5px; font-weight:700; color:var(--ink-2); min-width:36px; font-variant-numeric:tabular-nums; }
+      .island-track{ flex:1; height:14px; border-radius:99px; background:#e4e4e9; position:relative; cursor:pointer; }
+      .island-fill{ position:absolute; inset:0 auto 0 0; width:0%; border-radius:99px; background:linear-gradient(90deg, var(--blue-2), var(--blue)); }
+      .island-controls{ display:flex; align-items:center; justify-content:center; gap:28px; }
+      .island-ctl{ width:64px; height:64px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:21px; }
+      .island-ctl.main{ width:72px; height:72px; background:#17181c; color:#fff; }
+      .island-open-media{ font-size:15px; font-weight:700; color:var(--blue); padding:6px; }
+
+      /* ============ Ferrostar navigation view (build 52) ============ */
+      .nav-map-wrap{
+        position:relative; height:430px; border-radius:18px; overflow:hidden;
+        border:1.5px solid var(--line); background:#e8eef2; margin-top:16px;
+      }
+      .nav-map-wrap ferrostar-map{ display:block; width:100%; height:100%; }
+      .nav-maneuver{
+        background:#17181c; color:#fff; border-radius:20px; padding:18px 22px;
+        margin-top:16px; display:flex; align-items:center; gap:18px;
+      }
+      .nav-maneuver .nm-dist{ font-size:40px; font-weight:800; white-space:nowrap; font-variant-numeric:tabular-nums; }
+      .nav-maneuver .nm-main{ flex:1; min-width:0; }
+      .nav-maneuver .nm-text{ font-size:22px; font-weight:800; line-height:1.2; }
+      .nav-maneuver .nm-remain{ font-size:15.5px; font-weight:600; color:#b9bcc6; margin-top:3px; }
+      .nav-chips{ display:flex; gap:10px; flex-wrap:wrap; margin-top:16px; }
+      .nav-search-row{ display:flex; gap:12px; margin-top:16px; }
+      .nav-search-row input{
+        flex:1; border:1.5px solid var(--line); background:var(--card); border-radius:16px;
+        padding:0 18px; min-height:58px; font:inherit; font-size:18px; font-weight:600; min-width:0;
+      }
+      .nav-results{ display:flex; flex-direction:column; gap:10px; margin-top:14px; }
+      .nav-result{
+        text-align:left; background:var(--card); border-radius:14px; padding:14px 16px;
+        font-size:16px; font-weight:700; line-height:1.35;
+      }
+      .nav-result:hover{ background:var(--card-2); }
+      .nav-status{ font-size:16px; font-weight:700; color:var(--ink-2); margin-top:14px; }
+
+      /* ============ Weather page (build 52) ============ */
+      .wx-hero{
+        background:linear-gradient(160deg, #e8f2ff, #f6f6f8); border-radius:22px;
+        padding:24px 26px; margin-top:6px;
+      }
+      .wx-hero .wx-big{ font-size:72px; font-weight:800; line-height:1; }
+      .wx-hero .wx-cond-big{ font-size:22px; font-weight:700; color:var(--ink-2); margin-top:6px; }
+      .wx-hero .wx-feels{ font-size:16.5px; font-weight:600; color:var(--ink-2); margin-top:8px; }
+      .wx-section{ margin-top:26px; }
+      .wx-section h3{ font-size:20px; font-weight:800; margin:0 0 12px; }
+      .wx-days{ display:flex; flex-direction:column; gap:8px; }
+      .wx-day{
+        display:grid; grid-template-columns:130px 44px 70px 1fr 130px; align-items:center; gap:12px;
+        background:var(--card); border-radius:16px; padding:14px 18px; text-align:left; width:100%;
+      }
+      .wx-day .wd-name{ font-size:17px; font-weight:800; }
+      .wx-day .wd-rain{ font-size:15px; font-weight:700; color:var(--blue); }
+      .wx-day .wd-temps{ font-size:17px; font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
+      .wx-day .wd-temps small{ color:var(--ink-3); font-weight:600; }
+      .wx-range{ height:8px; border-radius:99px; background:#dcdce1; position:relative; }
+      .wx-range i{ position:absolute; top:0; bottom:0; border-radius:99px; background:linear-gradient(90deg, #7cc0ff, #ff9d5c); }
+      .wx-cards{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+      .wx-card{ background:var(--card); border-radius:16px; padding:16px 18px; }
+      .wx-card .wk{ font-size:12.5px; font-weight:800; letter-spacing:.1em; color:var(--ink-3); }
+      .wx-card .wv{ font-size:22px; font-weight:800; margin-top:4px; }
+      .wx-card .ws{ font-size:14px; font-weight:600; color:var(--ink-2); margin-top:2px; }
+      .wx-detail{
+        background:var(--card); border-radius:16px; padding:18px 20px; margin-top:12px;
+        font-size:16px; font-weight:600; line-height:1.6; color:var(--ink-2);
+      }
+      .wx-detail b{ color:var(--ink); }
+      .yt-status{ font-size:15.5px; font-weight:700; color:var(--ink-2); margin-top:12px; }
+      #ytPlayer{ position:absolute; inset:0; width:100%; height:100%; }
+      .rail-btn.exit{ color:#c81e1e; }
+      @media (max-width:820px){
+        .island{ width:min(560px, calc(100vw - 24px)); }
+        .island.full{ width:min(720px, calc(100vw - 24px)); height:300px; }
+        .nav-map-wrap{ height:340px; }
+        .wx-day{ grid-template-columns:96px 40px 56px 1fr 96px; gap:8px; padding:12px; }
+      }
+
       /* ============ Responsive ============ */
       @media (max-width:1180px){
         .body{ grid-template-columns:76px minmax(0,1fr); }
@@ -592,6 +709,9 @@
             <button type="button" class="rail-btn" data-nav="browser" aria-label="Browser">
               <svg width="29" height="29" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.7 2.6 4 5.6 4 9s-1.3 6.4-4 9c-2.7-2.6-4-5.6-4-9s1.3-6.4 4-9Z"/></svg>
             </button>
+          </div>
+          <div class="rail-group">
+            <button type="button" class="rail-btn exit" id="railExit" hidden aria-label="Exit preview">✕</button>
           </div>
         </nav>
 
@@ -780,8 +900,10 @@
 
               <div class="wv-local" id="wvWeather" hidden>
                 <h2 id="wxTitle">Phnom Penh weather</h2>
-                <p class="sub" id="wxSub">Live from Open-Meteo — no account, no key. Today, hour by hour.</p>
-                <div class="hourly" id="wxHourly"></div>
+                <p class="sub" id="wxSub">Live from Open-Meteo — no account, no key. Data: Open-Meteo.</p>
+                <div id="wxPage">
+                  <p class="sub">Loading the forecast…</p>
+                </div>
               </div>
 
               <div class="wv-local" id="wvLock" hidden>
@@ -798,8 +920,9 @@
               <!-- YouTube — embed player (youtube.com/tv refuses framing; the embed player is the URL that works in a WebView frame) -->
               <div class="wv-local" id="wvYouTube" hidden>
                 <h2>YouTube</h2>
-                <p class="sub">Playing through the YouTube embed player — the address that loads inside a WebView. Pick a video, it plays inline. In AionLink the same page opens with the TV user agent.</p>
-                <div class="yt-player-wrap"><iframe id="ytPlayer" title="YouTube player" src="https://www.youtube-nocookie.com/embed/jNQXAC9IVRw?rel=0" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>
+                <p class="sub">Playing through the YouTube player — pick a video, it plays inline and reports its real play state below.</p>
+                <div class="yt-player-wrap"><div id="ytPlayer"></div></div>
+                <div class="yt-status" id="ytStatus">Pick a video to play</div>
                 <div class="yt-grid" id="ytGrid"></div>
               </div>
 
@@ -810,9 +933,34 @@
                 <div style="display:flex;gap:12px;flex-wrap:wrap">
                   <button type="button" class="btn-dark" id="fbOpenPhone">Open on phone via Bridge</button>
                   <button type="button" class="wv-btn" id="fbExternal" style="min-height:52px">Open web version ↗</button>
-                  <button type="button" class="wv-btn" id="fbRetry" style="min-height:52px">Try loading here again</button>
+                  <button type="button" class="btn-dark" id="fbRetry">Open in dashboard browser</button>
                 </div>
                 <p class="sub" style="margin-top:20px" id="fbNote"></p>
+              </div>
+
+              <!-- Navigation — Ferrostar live turn-by-turn (build 52) -->
+              <div class="wv-local" id="wvNav" hidden>
+                <h2>Navigation</h2>
+                <p class="sub">Live turn-by-turn from Ferrostar on OpenStreetMap — no account, no key. The route follows the phone's GPS; voice guidance speaks the next turn. Pick a destination below.</p>
+                <div class="nav-map-wrap">
+                  <ferrostar-map id="ferrostarMap"></ferrostar-map>
+                  <ferrostar-core id="ferroCore"></ferrostar-core>
+                </div>
+                <div class="nav-maneuver" id="navManeuver" hidden>
+                  <div class="nm-dist" id="navManDist">—</div>
+                  <div class="nm-main">
+                    <div class="nm-text" id="navManText">Follow the route</div>
+                    <div class="nm-remain" id="navRemain"></div>
+                  </div>
+                  <button type="button" class="btn-dark" id="navStopBtn">Stop</button>
+                </div>
+                <div class="nav-chips" id="navChips"></div>
+                <div class="nav-search-row">
+                  <input id="navSearchInput" type="search" placeholder="Search a place in Phnom Penh" autocomplete="off" aria-label="Search a destination" />
+                  <button type="button" class="btn-dark" id="navSearchBtn">Search</button>
+                </div>
+                <div class="nav-results" id="navResults"></div>
+                <div class="nav-status" id="navStatus">Map loading…</div>
               </div>
 
               <iframe id="wvFrame" title="WebView content" sandbox="allow-scripts allow-same-origin allow-popups allow-forms allow-presentation" referrerpolicy="no-referrer-when-downgrade"></iframe>
@@ -847,7 +995,7 @@
           <!-- MEDIA VIEW — auto-opens whenever the phone is playing music -->
           <div class="view simple-view" id="view-media" hidden>
             <h2>Now Playing — from your phone</h2>
-            <p class="sub">This page opens by itself whenever music starts on the phone. Everything here comes through the Phone Bridge — tap play / pause and it controls the phone, not a copy in the car.</p>
+                <p class="sub">When music starts, a small pill pops up at the top — this page stays here for the full player. Everything here comes through the Phone Bridge — tap play / pause and it controls the phone, not a copy in the car.</p>
             <div class="media-hero">
               <img class="media-art" id="mediaArt" src="data:image/jpeg;base64,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" alt="Album artwork for the track playing on the phone" />
               <div>
@@ -863,9 +1011,9 @@
                   <button type="button" class="pc-btn" id="mediaPrev" aria-label="Previous track on phone"><svg width="27" height="27" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5.5v13a1 1 0 0 1-2 0v-13a1 1 0 0 1 2 0Zm13.3.9v11.2a1 1 0 0 1-1.5.87L8.6 12.9a1 1 0 0 1 0-1.8l10.2-5.6a1 1 0 0 1 1.5.9Z"/></svg></button>
                   <button type="button" class="pc-btn main" id="mediaPlay" aria-label="Play or pause on phone"><svg id="mediaPlayIcon" width="30" height="30" viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 5.5v13M16.5 5.5v13" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" fill="none"/></svg></button>
                   <button type="button" class="pc-btn" id="mediaNext" aria-label="Next track on phone"><svg width="27" height="27" viewBox="0 0 24 24" fill="currentColor"><path d="M17 5.5v13a1 1 0 0 0 2 0v-13a1 1 0 0 0-2 0ZM3.7 6.4v11.2a1 1 0 0 0 1.5.87l10.2-5.57a1 1 0 0 0 0-1.8L5.2 5.53a1 1 0 0 0-1.5.87Z"/></svg></button>
-                  <label style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px"><span>Auto-open this page when phone plays</span><span class="switch"><input type="checkbox" id="autoMedia" checked /><span class="track"></span></span></label>
+                  <label style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px">                  <span>Show the media pill when phone plays</span><span class="switch"><input type="checkbox" id="autoMedia" checked /><span class="track"></span></span></label>
                 </div>
-                <p class="sub" style="margin-top:16px" id="mediaHint">This page opens by itself whenever music starts playing on the phone. The controls here drive the phone, not a copy in the car.</p>
+                <p class="sub" style="margin-top:16px" id="mediaHint">When music starts, a small pill pops up at the top instead of this page. The controls here drive the phone, not a copy in the car.</p>
                 <div style="display:flex;gap:12px;flex-wrap:wrap">
                   <button type="button" class="wv-btn" id="mediaGoHome">Back to Home</button>
                 </div>
@@ -954,6 +1102,47 @@
     <!-- ===== Phone Bridge explainer ===== -->
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <!-- Dynamic Island media pill (build 52): pops up when music starts,
+         tap to expand to a mini-player, auto-hides ~10 s after a pause.
+         Never navigates away — the full Media page stays on the rail. -->
+    <div class="island" id="island" hidden>
+      <div class="island-layer island-pill">
+        <img class="island-art" id="islandArt" alt="" style="display:none" />
+        <div class="island-text">
+          <span class="island-title" id="islandTitle">Nothing playing</span>
+          <span class="island-artist" id="islandArtist"></span>
+        </div>
+        <div class="island-eq" aria-hidden="true"><i></i><i></i><i></i></div>
+        <button type="button" class="island-btn" id="islandPlay" aria-label="Play or pause">❚❚</button>
+      </div>
+      <div class="island-layer island-full">
+        <div class="island-full-top">
+          <img class="island-art-big" id="islandArtBig" alt="" style="display:none" />
+          <div class="island-full-text">
+            <div class="island-title-big" id="islandTitleBig">Nothing playing</div>
+            <div class="island-artist-big" id="islandArtistBig"></div>
+            <div class="island-app" id="islandApp"></div>
+          </div>
+          <button type="button" class="island-collapse" id="islandCollapse" aria-label="Shrink the player">⌄</button>
+        </div>
+        <div class="island-progress-row">
+          <span class="t" id="islandElapsed">0:00</span>
+          <div class="island-track" id="islandTrack"><div class="island-fill" id="islandFill"></div></div>
+          <span class="t" id="islandTotal">0:00</span>
+        </div>
+        <div class="island-controls">
+          <button type="button" class="island-ctl" id="islandPrev" aria-label="Previous track">⏮</button>
+          <button type="button" class="island-ctl main" id="islandPlayBig" aria-label="Play or pause">❚❚</button>
+          <button type="button" class="island-ctl" id="islandNext" aria-label="Next track">⏭</button>
+        </div>
+        <button type="button" class="island-open-media" id="islandOpenMedia">Open full Media page</button>
+      </div>
+    </div>
+    <!-- Ferrostar navigation bundle (build 52): registers the
+         <ferrostar-map> / <ferrostar-core> elements and exposes
+         window.FerrostarNav. Loaded as a module so its WASM stays inlined. -->
+    <script type="module" crossorigin src="./ferrostar-bundle.js"></script>
     <script>
       (function(){
         "use strict";
@@ -1097,7 +1286,7 @@
           spotify:   { name:"Spotify",   url:"local:media", host:"Phone Bridge · Media", frame:"local" },
           youtube:   { name:"YouTube",   url:"local:youtube", host:"YouTube embed player", frame:"local", video:true },
           gmaps:     { name:"Google Maps", url:MAPS_EMBED, host:"maps.google.com", frame:"embed" },
-          osm:       { name:"Map — OpenStreetMap", url:"https://www.openstreetmap.org/export/embed.html?bbox=104.82%2C11.50%2C104.97%2C11.60&layer=mapnik&marker=11.5449%2C104.8922", host:"openstreetmap.org", frame:"embed" },
+          osm:       { name:"Map — OpenStreetMap", url:"local:nav", host:"Ferrostar · OpenStreetMap", frame:"local" },
           weather:   { name:"Weather",   url:"local:weather", host:"Open-Meteo · Phnom Penh", frame:"local" },
           radio:     { name:"Web radio", url:"https://radio.garden", host:"radio.garden", frame:"fallback", pkg:"" },
           plugshare: { name:"Charging — PlugShare", url:"https://www.plugshare.com", host:"plugshare.com", frame:"fallback", pkg:"com.xatori.plugshare" }
@@ -1107,7 +1296,7 @@
 
         function hideLocals(){
           $("wvStart").hidden = true; $("wvWeather").hidden = true; $("wvLock").hidden = true;
-          $("wvYouTube").hidden = true; $("wvFallback").hidden = true;
+          $("wvYouTube").hidden = true; $("wvFallback").hidden = true; $("wvNav").hidden = true;
         }
         var lockApp = null, fallbackApp = null, videoConfirmed = false;
         function showLock(app){
@@ -1121,13 +1310,58 @@
           setUrlBar(app.host || app.name);
           $("wvNote").hidden = true;
         }
+        /* YouTube on the IFrame API (build 52): a real player object with
+           play state and error reporting, instead of swapping iframe src and
+           hoping. The player is created once, on first open; the picker then
+           calls loadVideoById. host stays youtube-nocookie.com. */
+        var ytApiLoading = false, ytApiQueue = [], ytPlayerApi = null;
+        var YT_STATE = { "-1":"Unstarted", 0:"Ended", 1:"Playing", 2:"Paused", 3:"Buffering", 5:"Video cued" };
+        var YT_ERROR = { 2:"Invalid video (error 2)", 5:"HTML5 player error (5)", 100:"Video not found or private (100)", 101:"Embedding not allowed by the owner (101)", 150:"Embedding not allowed by the owner (150)" };
+        function ytEnsureApi(cb){
+          if (window.YT && window.YT.Player){ cb(); return; }
+          ytApiQueue.push(cb);
+          if (ytApiLoading) return;
+          ytApiLoading = true;
+          window.onYouTubeIframeAPIReady = function(){
+            ytApiLoading = false;
+            var q = ytApiQueue; ytApiQueue = [];
+            q.forEach(function(f){ try { f(); } catch(e){} });
+          };
+          var s = document.createElement("script");
+          s.src = "https://www.youtube.com/iframe_api";
+          s.onerror = function(){
+            ytApiLoading = false; ytApiQueue = [];
+            $("ytStatus").textContent = "Could not load the YouTube player — check connection and reopen YouTube.";
+          };
+          document.head.appendChild(s);
+        }
+        function ytCreatePlayer(videoId){
+          ytPlayerApi = new YT.Player("ytPlayer", {
+            host: "https://www.youtube-nocookie.com",
+            videoId: videoId,
+            playerVars: { rel: 0, autoplay: 0 },
+            events: {
+              onReady: function(){ $("ytStatus").textContent = "Ready — press play"; },
+              onStateChange: function(ev){ $("ytStatus").textContent = YT_STATE[String(ev.data)] || ("State " + ev.data); },
+              onError: function(ev){ $("ytStatus").textContent = (YT_ERROR[ev.data] || ("YouTube error " + ev.data)) + " — try another video."; }
+            }
+          });
+        }
+        function ytPlay(videoId){
+          if (ytPlayerApi && ytPlayerApi.loadVideoById){ ytPlayerApi.loadVideoById(videoId); return; }
+          ytEnsureApi(function(){
+            if (ytPlayerApi && ytPlayerApi.loadVideoById){ ytPlayerApi.loadVideoById(videoId); return; }
+            ytCreatePlayer(videoId);
+          });
+        }
         function openYouTube(app){
           currentApp = app || APPS.youtube;
           hideLocals(); frame.style.display = "none"; loading.hidden = true;
           $("wvYouTube").hidden = false;
-          setUrlBar("youtube-nocookie.com/embed · embed player");
+          setUrlBar("YouTube · IFrame API player");
           $("wvNote").hidden = true;
           pushHistory({ app: currentApp, url: "local:youtube" });
+          if (!ytPlayerApi) ytEnsureApi(function(){ if (!ytPlayerApi) ytCreatePlayer("jNQXAC9IVRw"); });
         }
         function openFallback(app){
           fallbackApp = app; currentApp = app;
@@ -1135,7 +1369,7 @@
           hideLocals(); frame.style.display = "none"; loading.hidden = true;
           $("wvFallback").hidden = false;
           $("fbTitle").textContent = app.name;
-          $("fbText").textContent = app.name + " refuses to load inside a browser frame, which is why it looked broken. In the AionLink Android WebView it loads directly — and with the Phone Bridge the car can also open the real app on the phone. Use either button below; both work now, no more blank page.";
+          $("fbText").textContent = app.name + " refuses to load inside a browser frame, which is why it looked broken. Open it in the dashboard browser instead — it loads as the main page, with a Home button to come back. Or open the real app on the phone via the Bridge.";
           $("fbExternal").href = app.url;
           $("fbNote").textContent = "Bridge package: " + (app.pkg || "web only") + " · Web address: " + app.host;
           setUrlBar("Bridge page · " + app.host);
@@ -1168,6 +1402,7 @@
           if (app.video && !videoConfirmed){ showLock(app); return; }
           showView("web");
           if (app.url === "local:weather"){ openWeather(app); return; }
+          if (app.url === "local:nav"){ openNav(app); return; }
           if (app.url === "local:youtube"){ openYouTube(app); return; }
           if (app.frame === "fallback"){ openFallback(app); return; }
           loadUrl(app, app.url);
@@ -1176,7 +1411,12 @@
           if (fallbackApp) PhoneBridge.openApp(fallbackApp.pkg || "", fallbackApp.name);
         });
         $("fbRetry").addEventListener("click", function(){
-          if (fallbackApp) loadUrl(fallbackApp, fallbackApp.url);
+          if (!fallbackApp) return;
+          if (PhoneBridge.openBrowser(fallbackApp.url)){
+            toast("Opening " + fallbackApp.name + " in the dashboard browser");
+            return;
+          }
+          loadUrl(fallbackApp, fallbackApp.url);
         });
         $("fbExternal").addEventListener("click", function(){
           if (fallbackApp) loadUrl(fallbackApp, fallbackApp.url);
@@ -1200,7 +1440,7 @@
           var cards = $("ytGrid").querySelectorAll("[data-yt]");
           for (var i = 0; i < cards.length; i++){
             cards[i].addEventListener("click", function(){
-              $("ytPlayer").src = "https://www.youtube-nocookie.com/embed/" + this.getAttribute("data-yt") + "?rel=0&autoplay=1";
+              ytPlay(this.getAttribute("data-yt"));
             });
           }
         })();
@@ -1213,9 +1453,166 @@
           setUrlBar("Open-Meteo · Phnom Penh");
           $("wvNote").hidden = true;
           pushHistory({ app: currentApp, url: "local:weather" });
-          if (!wxHourlyData) fetchWeather();
-          renderHourly();
+          if (!wxFullData) fetchWeather();
+          renderWxPage();
         }
+        /* ---------- Ferrostar live navigation (build 52) ---------- */
+        var navInited = false, navInitFailed = false, navBusy = false, navDest = null, ferroNavigating = false;
+        var NAV_PRESETS = [
+          { name:"Airport", lat:11.5466, lng:104.8479 },
+          { name:"Central Market", lat:11.5696, lng:104.9210 },
+          { name:"Riverside", lat:11.5625, lng:104.9330 },
+          { name:"Independence Monument", lat:11.5564, lng:104.9283 }
+        ];
+        function fmtNavDist(m){
+          if (m == null || isNaN(m)) return "—";
+          if (m < 1000) return Math.round(m) + " m";
+          return (Math.round(m / 100) / 10) + " km";
+        }
+        function fmtNavEta(sec){
+          if (sec == null || isNaN(sec)) return "";
+          var min = Math.round(sec / 60);
+          if (min < 60) return min + " min";
+          return Math.floor(min / 60) + " h " + (min % 60) + " min";
+        }
+        function openNav(app){
+          currentApp = app || APPS.osm;
+          showView("web");
+          hideLocals(); frame.style.display = "none"; loading.hidden = true;
+          $("wvNav").hidden = false;
+          setUrlBar("Ferrostar navigation · OpenStreetMap");
+          $("wvNote").hidden = true;
+          pushHistory({ app: currentApp, url: "local:nav" });
+          if (!navInited && !navInitFailed) initNav();
+          else if (navInited && window.FerrostarNav) window.FerrostarNav.resize();
+        }
+        function initNav(){
+          if (!window.FerrostarNav){
+            navInitFailed = true;
+            $("navStatus").textContent = "Navigation files did not load — the Ferrostar bundle is missing from this install.";
+            return;
+          }
+          try {
+            if (!window.FerrostarNav.init()){
+              navInitFailed = true;
+              $("navStatus").textContent = "Navigation view could not start.";
+              return;
+            }
+            navInited = true;
+            $("navStatus").textContent = "Map ready — pick a destination below.";
+            buildNavChips();
+          } catch (e){
+            navInitFailed = true;
+            $("navStatus").textContent = "Navigation failed to start: " + (e && e.message ? e.message : e);
+          }
+        }
+        function buildNavChips(){
+          var box = $("navChips"), html = "";
+          NAV_PRESETS.forEach(function(p){
+            html += '<button type="button" class="chip" data-nav-lat="' + p.lat + '" data-nav-lng="' + p.lng + '" data-nav-name="' + p.name + '">' + p.name + '</button>';
+          });
+          box.innerHTML = html;
+          var chips = box.querySelectorAll("[data-nav-lat]");
+          for (var i = 0; i < chips.length; i++){
+            chips[i].addEventListener("click", function(){
+              navRouteTo(parseFloat(this.getAttribute("data-nav-lat")), parseFloat(this.getAttribute("data-nav-lng")), this.getAttribute("data-nav-name"));
+            });
+          }
+        }
+        function navRouteTo(lat, lng, name){
+          if (!navInited || !window.FerrostarNav){ toast("Open Navigation first"); return; }
+          if (navBusy) return;
+          navBusy = true; navDest = name;
+          $("navStatus").textContent = "Getting a route to " + name + "…";
+          window.FerrostarNav.routeTo(lat, lng).then(function(){
+            navBusy = false;
+            $("navStatus").textContent = "Navigating to " + name + " — follow the black maneuver card.";
+          }, function(e){
+            navBusy = false;
+            $("navStatus").textContent = "No route to " + name + ": " + (e && e.message ? e.message : e);
+          });
+        }
+        function navStop(){
+          if (window.FerrostarNav) window.FerrostarNav.stop();
+          navDest = null; ferroNavigating = false;
+          $("navManeuver").hidden = true;
+          $("navStatus").textContent = "Navigation stopped — pick a destination below.";
+        }
+        $("navStopBtn").addEventListener("click", navStop);
+        $("navSearchBtn").addEventListener("click", function(){
+          var q = $("navSearchInput").value.trim();
+          if (!q){ toast("Type a place first"); return; }
+          navSearch(q);
+        });
+        $("navSearchInput").addEventListener("keydown", function(ev){
+          if (ev.key === "Enter"){ ev.preventDefault(); $("navSearchBtn").click(); }
+        });
+        function navSearch(q){
+          $("navStatus").textContent = "Searching for " + q + "…";
+          fetch("https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=kh&q=" + encodeURIComponent(q + ", Phnom Penh"))
+            .then(function(r){ return r.json(); }).then(function(results){
+              var box = $("navResults");
+              if (!results || !results.length){
+                box.innerHTML = "";
+                $("navStatus").textContent = "No place found for “" + q + "” — try another name.";
+                return;
+              }
+              var html = "";
+              results.forEach(function(r){
+                html += '<button type="button" class="nav-result" data-lat="' + r.lat + '" data-lon="' + r.lon + '">' + String(r.display_name).replace(/</g, "&lt;") + '</button>';
+              });
+              box.innerHTML = html;
+              $("navStatus").textContent = results.length + " result" + (results.length > 1 ? "s" : "") + " — tap one to route there.";
+              var btns = box.querySelectorAll("[data-lat]");
+              for (var i = 0; i < btns.length; i++){
+                btns[i].addEventListener("click", function(){
+                  navRouteTo(parseFloat(this.getAttribute("data-lat")), parseFloat(this.getAttribute("data-lon")), this.textContent.split(",")[0]);
+                });
+              }
+            }).catch(function(){
+              $("navStatus").textContent = "Search failed — check connection and try again.";
+            });
+        }
+        window.addEventListener("ferrostar-trip", function(ev){ renderNavState(ev.detail); });
+        window.addEventListener("ferrostar-error", function(ev){
+          $("navStatus").textContent = "Map error: " + (ev.detail || "unknown");
+        });
+        function renderNavState(state){
+          if (!state){ ferroNavigating = false; return; }
+          if (state.Navigating){
+            ferroNavigating = true;
+            var nav = state.Navigating;
+            var vis = nav.visualInstruction;
+            var text = vis && vis.primaryContent ? vis.primaryContent.text : "";
+            var dist = nav.progress ? nav.progress.distanceToNextManeuver : 0;
+            var remain = nav.progress ? nav.progress.distanceRemaining : 0;
+            var eta = nav.progress ? nav.progress.durationRemaining : 0;
+            $("navManText").textContent = text || "Follow the route";
+            $("navManDist").textContent = fmtNavDist(dist);
+            $("navRemain").textContent = fmtNavDist(remain) + " remaining · " + fmtNavEta(eta);
+            $("navManeuver").hidden = false;
+            $("navStatus").textContent = "Navigating" + (navDest ? " to " + navDest : "") + ".";
+            $("navDist").textContent = fmtNavDist(dist);
+            $("navStreet").textContent = text || "Follow the route";
+          } else if (state.Complete){
+            ferroNavigating = false;
+            $("navManeuver").hidden = true;
+            $("navStatus").textContent = "Arrived" + (navDest ? " at " + navDest : "") + ".";
+            navDest = null;
+          } else {
+            ferroNavigating = false;
+            $("navManeuver").hidden = true;
+          }
+        }
+        /* Feed bridge GPS into Ferrostar once a second while it is running. */
+        setInterval(function(){
+          if (!navInited || !window.FerrostarNav) return;
+          try {
+            var loc = PhoneBridge.getLocation();
+            if (loc.lat && loc.lng) window.FerrostarNav.setLocation(loc.lat, loc.lng, loc.speedKmh >= 0 ? loc.speedKmh : 0);
+          } catch (e){}
+        }, 1000);
+
         function openStart(){
           showView("web");
           currentApp = null;
@@ -1241,6 +1638,7 @@
             if (prev.url === "local:youtube"){ showView("web"); openYouTube(prev.app); return; }
             if (prev.url === "local:fallback"){ openFallback(prev.app); return; }
             if (prev.url === "local:weather"){ openWeather(prev.app); return; }
+            if (prev.url === "local:nav"){ showView("web"); openNav(prev.app); return; }
           } finally { navigatingBack = false; $("wvBack").disabled = historyStack.length <= 1; }
           var app = prev.app;
           hideLocals(); frame.style.display = "block"; loading.hidden = false;
@@ -1315,52 +1713,123 @@
           chips[ci].addEventListener("click", function(){ mapsSearch(this.getAttribute("data-chip")); });
         }
 
-        /* ---------- Weather (Open-Meteo, Phnom Penh) ---------- */
+        /* ---------- Weather — Google-Weather-style page (build 52) ---------- */
         var WX_CODES = {0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",45:"Fog",48:"Fog",51:"Light drizzle",53:"Drizzle",55:"Drizzle",56:"Freezing drizzle",57:"Freezing drizzle",61:"Light rain",63:"Rain",65:"Heavy rain",66:"Freezing rain",67:"Freezing rain",71:"Light snow",73:"Snow",75:"Heavy snow",77:"Snow grains",80:"Light showers",81:"Showers",82:"Violent showers",85:"Snow showers",86:"Snow showers",95:"Thunderstorm",96:"Thunderstorm, hail",99:"Thunderstorm, hail"};
-        var wxHourlyData = null, wxFailed = false, wxFetching = false;
+        var WX_URL = "https://api.open-meteo.com/v1/forecast?latitude=11.55&longitude=104.92&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day,pressure_msl,cloud_cover&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,relative_humidity_2m,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,cloud_cover&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,precipitation_sum,precipitation_probability_max,sunrise,sunset,uv_index_max,wind_speed_10m_max,wind_direction_10m_dominant,wind_gusts_10m_max,daylight_duration,sunshine_duration&timezone=Asia%2FPhnom_Penh&forecast_days=10";
+        var wxFullData = null, wxFailed = false, wxFetching = false;
         function wxText(code){ return WX_CODES[code] || "—"; }
+        function wxHour(hh){ return (hh < 10 ? "0" : "") + hh + ":00"; }
+        function wxDayName(iso){
+          var d = new Date(iso + "T12:00:00");
+          return DAYS[d.getDay()];
+        }
+        function wxShortTime(iso){ return iso ? iso.slice(11, 16) : "—"; }
         function fetchWeather(){
           if (wxFetching) return;
           wxFetching = true;
-          var url = "https://api.open-meteo.com/v1/forecast?latitude=11.5449&longitude=104.8922&current=temperature_2m,weather_code&hourly=temperature_2m,weather_code&forecast_days=1&timezone=Asia%2FPhnom_Penh";
-          fetch(url).then(function(r){ return r.json(); }).then(function(data){
+          fetch(WX_URL).then(function(r){ return r.json(); }).then(function(data){
             wxFetching = false;
             if (data && data.current){
               wxFailed = false;
+              wxFullData = data;
               $("wxTemp").textContent = Math.round(data.current.temperature_2m) + "°C";
               $("wxCond").textContent = wxText(data.current.weather_code);
-            }
-            if (data && data.hourly) wxHourlyData = data.hourly;
-            renderHourly();
+            } else { wxFailed = true; }
+            renderWxPage();
           }).catch(function(){
             wxFetching = false; wxFailed = true;
             $("wxTemp").textContent = "--°C";
             $("wxCond").textContent = "Couldn't load — check connection";
-            renderHourly();
+            renderWxPage();
           });
         }
-        function renderHourly(){
-          var box = $("wxHourly");
-          if (!wxHourlyData){
+        function renderWxPage(){
+          var box = $("wxPage");
+          if (!wxFullData){
             box.innerHTML = wxFailed
-              ? '<p class="sub" style="grid-column:1/-1">Hourly forecast unavailable — the weather service could not be reached. Reconnect and reopen Weather to try again.</p>'
-              : '<p class="sub" style="grid-column:1/-1">Loading the hourly forecast…</p>';
+              ? '<p class="sub">Forecast unavailable — the weather service could not be reached. Reconnect and reopen Weather to try again.</p>'
+              : '<p class="sub">Loading the forecast…</p>';
             return;
           }
+          var cur = wxFullData.current, hr = wxFullData.hourly, dy = wxFullData.daily;
           var nowH = new Date().getHours();
-          var html = "";
-          for (var i = 0; i < wxHourlyData.time.length; i++){
-            var t = wxHourlyData.time[i];
-            var hh = parseInt(t.slice(11,13), 10);
-            var label = (hh === nowH) ? "Now" : pad(hh) + ":00";
+          var html = '<div class="wx-hero"><div class="wx-big">' + Math.round(cur.temperature_2m) + '°C</div>'
+            + '<div class="wx-cond-big">' + wxText(cur.weather_code) + '</div>'
+            + '<div class="wx-feels">Feels like ' + Math.round(cur.apparent_temperature) + '° · Today '
+            + Math.round(dy.temperature_2m_min[0]) + '° / ' + Math.round(dy.temperature_2m_max[0]) + '°</div></div>';
+          html += '<div class="wx-section"><h3>Next 24 hours</h3><div class="hourly">';
+          var shown = 0;
+          for (var i = 0; i < hr.time.length && shown < 24; i++){
+            var hh = parseInt(hr.time[i].slice(11, 13), 10);
+            if (shown === 0 && hh < nowH) continue;
+            var label = (hh === nowH) ? "Now" : wxHour(hh);
             html += '<div class="hour-cell"><div class="h">' + label + '</div><div class="tp">' +
-              Math.round(wxHourlyData.temperature_2m[i]) + '°</div><div class="cd">' +
-              wxText(wxHourlyData.weather_code[i]) + "</div></div>";
+              Math.round(hr.temperature_2m[i]) + '°</div><div class="cd">' +
+              wxText(hr.weather_code[i]) + '<br>' + Math.round(hr.precipitation_probability[i] || 0) + '% rain</div></div>';
+            shown += 1;
           }
+          html += '</div></div>';
+          html += '<div class="wx-section"><h3>10-day forecast</h3><div class="wx-days">';
+          var tmin = Math.min.apply(null, dy.temperature_2m_min), tmax = Math.max.apply(null, dy.temperature_2m_max);
+          var span = Math.max(1, tmax - tmin);
+          for (var d = 0; d < dy.time.length; d++){
+            var lo = dy.temperature_2m_min[d], hi = dy.temperature_2m_max[d];
+            var left = ((lo - tmin) / span * 100).toFixed(1), w = Math.max(4, (hi - lo) / span * 100).toFixed(1);
+            html += '<button type="button" class="wx-day" data-day="' + d + '">'
+              + '<span class="wd-name">' + (d === 0 ? "Today" : wxDayName(dy.time[d])) + '</span>'
+              + '<span aria-hidden="true">' + wxIcon(dy.weather_code[d]) + '</span>'
+              + '<span class="wd-rain">' + Math.round(dy.precipitation_probability_max[d] || 0) + '%</span>'
+              + '<span class="wx-range"><i style="left:' + left + '%;width:' + w + '%"></i></span>'
+              + '<span class="wd-temps"><small>' + Math.round(lo) + '°</small> / ' + Math.round(hi) + '°</span></button>';
+          }
+          html += '</div><div class="wx-detail" id="wxDayDetail" hidden></div></div>';
+          var uvi = 0;
+          for (var u = 0; u < hr.time.length; u++){ if (parseInt(hr.time[u].slice(11,13),10) === nowH){ uvi = hr.uv_index[u]; break; } }
+          html += '<div class="wx-section"><h3>Current conditions</h3><div class="wx-cards">'
+            + wxCard("WIND", Math.round(cur.wind_speed_10m) + " km/h", "Gusts " + Math.round(cur.wind_gusts_10m) + " km/h · from " + Math.round(cur.wind_direction_10m) + "°")
+            + wxCard("HUMIDITY", Math.round(cur.relative_humidity_2m) + "%", "Cloud cover " + Math.round(cur.cloud_cover) + "%")
+            + wxCard("UV INDEX", String(Math.round(uvi * 10) / 10), "Today max " + Math.round(dy.uv_index_max[0] * 10) / 10)
+            + wxCard("PRESSURE", Math.round(cur.pressure_msl) + " hPa", "Precipitation " + (cur.precipitation || 0) + " mm")
+            + wxCard("SUNRISE", wxShortTime(dy.sunrise[0]), "Sunset " + wxShortTime(dy.sunset[0]))
+            + "</div></div>";
           box.innerHTML = html;
+          var days = box.querySelectorAll("[data-day]");
+          for (var di = 0; di < days.length; di++){
+            days[di].addEventListener("click", function(){ renderWxDayDetail(parseInt(this.getAttribute("data-day"), 10)); });
+          }
+          renderWxDayDetail(0);
+        }
+        function wxCard(k, v, s){
+          return '<div class="wx-card"><div class="wk">' + k + '</div><div class="wv">' + v + '</div><div class="ws">' + s + '</div></div>';
+        }
+        function wxIcon(code){
+          if (code === 0 || code === 1) return "☀";
+          if (code === 2 || code === 3) return "☁";
+          if (code === 45 || code === 48) return "∼";
+          if (code >= 51 && code <= 67) return "☂";
+          if (code >= 71 && code <= 86) return "✳";
+          if (code >= 95) return "⚡";
+          return "☁";
+        }
+        function renderWxDayDetail(d){
+          var detail = $("wxDayDetail");
+          if (!detail || !wxFullData) return;
+          var dy = wxFullData.daily, hr = wxFullData.hourly;
+          var hum = [], dayPrefix = dy.time[d];
+          for (var i = 0; i < hr.time.length; i++){
+            if (hr.time[i].indexOf(dayPrefix) === 0) hum.push(hr.relative_humidity_2m[i]);
+          }
+          var avgHum = hum.length ? Math.round(hum.reduce(function(a, b){ return a + b; }, 0) / hum.length) : null;
+          detail.hidden = false;
+          detail.innerHTML = "<b>" + (d === 0 ? "Today" : wxDayName(dy.time[d])) + ":</b> "
+            + wxText(dy.weather_code[d]) + " · high " + Math.round(dy.temperature_2m_max[d]) + "°, low " + Math.round(dy.temperature_2m_min[d])
+            + "° · rain " + Math.round(dy.precipitation_probability_max[d] || 0) + "% (" + (dy.precipitation_sum[d] || 0) + " mm)"
+            + " · wind up to " + Math.round(dy.wind_speed_10m_max[d]) + " km/h, gusts " + Math.round(dy.wind_gusts_10m_max[d])
+            + " km/h · UV max " + (Math.round(dy.uv_index_max[d] * 10) / 10)
+            + (avgHum == null ? "" : " · humidity ~" + avgHum + "%")
+            + " · sunrise " + wxShortTime(dy.sunrise[d]) + ", sunset " + wxShortTime(dy.sunset[d]) + ".";
         }
         fetchWeather();
-
         /* ---------- Music player ---------- */
         var TRACKS = [
           { title:"Don't Need You", artist:"Virtual Riot", dur:270, start:143 },
@@ -1537,6 +2006,17 @@
             if (nativeBridge && nativeBridge.openApp){ nativeBridge.openApp(pkg); toast("Bridge: opening " + name + " on the phone"); return; }
             toast("Bridge: would open " + name + " on the phone (" + (pkg || "web") + ") — simulated in this preview");
           },
+          isPreview: function(){
+            if (nativeBridge && nativeBridge.isPreview){ try { return !!nativeBridge.isPreview(); } catch(e){} }
+            return false;
+          },
+          exitPreview: function(){
+            if (nativeBridge && nativeBridge.exitPreview){ nativeBridge.exitPreview(); }
+          },
+          openBrowser: function(url){
+            if (nativeBridge && nativeBridge.openBrowser){ nativeBridge.openBrowser(url); return true; }
+            return false;
+          },
           _push: function(kind, payload){
             if (kind === "media"){ syncMediaFromBridge(true); }
             if (kind === "status"){ renderPhoneStatus(); }
@@ -1544,6 +2024,7 @@
         };
         function renderNav(){
           if (!nativeBridge) return;
+          if (ferroNavigating) return;
           var n = PhoneBridge.getNav();
           if (n.active){ $("navDist").textContent = n.title || ""; $("navStreet").textContent = n.text || ""; }
           else { $("navDist").textContent = "No active navigation"; $("navStreet").textContent = "Start a route in Maps or Waze on the phone"; }
@@ -1607,15 +2088,73 @@
             : '<path d="M8 5.3v13.4c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 0 0 0-2L9.8 4.3C9 3.8 8 4.4 8 5.3Z"/>';
           $("railMusic").classList.toggle("playing", !!m.isPlaying);
         }
+        /* ---------- Dynamic Island media pill (build 52) ---------- */
+        var islandState = "hidden", islandHideTimer = null;
+        function setIsland(state){
+          var el = $("island");
+          clearTimeout(islandHideTimer);
+          if (state === "hidden"){ el.hidden = true; el.classList.remove("pill", "full"); islandState = "hidden"; return; }
+          el.hidden = false;
+          el.classList.toggle("pill", state === "pill");
+          el.classList.toggle("full", state === "full");
+          islandState = state;
+        }
+        function scheduleIslandHide(){
+          clearTimeout(islandHideTimer);
+          islandHideTimer = setTimeout(function(){
+            if (!PhoneBridge.getMedia().isPlaying) setIsland("hidden");
+          }, 10000);
+        }
+        function islandPlayGlyph(playingNow){
+          return playingNow
+            ? '<path d="M7.5 5.5v13M16.5 5.5v13" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" fill="none"/>'
+            : '<path d="M8 5.3v13.4c0 .9 1 1.5 1.8 1L20 13a1.2 1.2 0 0 0 0-2L9.8 4.3C9 3.8 8 4.4 8 5.3Z"/>';
+        }
+        function renderIsland(){
+          var m = PhoneBridge.getMedia();
+          if (!m.title && !m.isPlaying && islandState === "hidden") return;
+          $("islandTitle").textContent = m.title || "Nothing playing";
+          $("islandArtist").textContent = m.artist || "";
+          $("islandTitleBig").textContent = m.title || "Nothing playing";
+          $("islandArtistBig").textContent = m.artist || "";
+          $("islandApp").textContent = (m.app || "Music") + " · " + (m.route || "");
+          var art = $("islandArt"), artBig = $("islandArtBig");
+          if (m.art){ art.src = m.art; art.style.display = ""; artBig.src = m.art; artBig.style.display = ""; }
+          else { art.style.display = "none"; artBig.style.display = "none"; }
+          $("islandElapsed").textContent = fmtT(m.positionSec || 0);
+          $("islandTotal").textContent = fmtT(m.durationSec || 0);
+          var pct = m.durationSec ? (m.positionSec / m.durationSec * 100) : 0;
+          $("islandFill").style.width = pct + "%";
+          $("islandPlay").innerHTML = '<svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor">' + islandPlayGlyph(!!m.isPlaying) + '</svg>';
+          $("islandPlayBig").innerHTML = '<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor">' + islandPlayGlyph(!!m.isPlaying) + '</svg>';
+          $("island").classList.toggle("paused", !m.isPlaying);
+          if (m.isPlaying && islandState === "hidden" && $("autoMedia").checked) setIsland("pill");
+        }
         function syncMediaFromBridge(userAction){
           renderMediaPage();
+          renderIsland();
           var nowPlaying = nativeBridge ? !!PhoneBridge.getMedia().isPlaying : playing;
-          if (nowPlaying && !wasPlaying && $("autoMedia").checked && currentView !== "media"){
-            showView("media");
-            toast("Music is playing on your phone — Now Playing opened");
-          }
+          if (nowPlaying && !wasPlaying && $("autoMedia").checked) setIsland("pill");
+          if (!nowPlaying && wasPlaying) scheduleIslandHide();
           wasPlaying = nowPlaying;
         }
+        $("island").addEventListener("click", function(ev){
+          if (ev.target.closest(".island-btn, .island-ctl, .island-track, .island-collapse, .island-open-media")) return;
+          if (islandState === "pill") setIsland("full");
+        });
+        $("islandPlay").addEventListener("click", function(ev){ ev.stopPropagation(); PhoneBridge.mediaPlayPause(); });
+        $("islandPlayBig").addEventListener("click", function(ev){ ev.stopPropagation(); PhoneBridge.mediaPlayPause(); });
+        $("islandPrev").addEventListener("click", function(ev){ ev.stopPropagation(); PhoneBridge.mediaPrev(); });
+        $("islandNext").addEventListener("click", function(ev){ ev.stopPropagation(); PhoneBridge.mediaNext(); });
+        $("islandCollapse").addEventListener("click", function(ev){ ev.stopPropagation(); setIsland("pill"); });
+        $("islandOpenMedia").addEventListener("click", function(ev){ ev.stopPropagation(); setIsland("pill"); showView("media"); });
+        $("islandTrack").addEventListener("click", function(ev){
+          ev.stopPropagation();
+          var r = this.getBoundingClientRect();
+          var ratio = Math.max(0, Math.min(1, (ev.clientX - r.left) / r.width));
+          var m = PhoneBridge.getMedia();
+          PhoneBridge.mediaSeek(Math.round((m.durationSec || 0) * ratio));
+        });
         $("mediaPlay").addEventListener("click", function(){ PhoneBridge.mediaPlayPause(); });
         $("mediaNext").addEventListener("click", function(){ PhoneBridge.mediaNext(); });
         $("mediaPrev").addEventListener("click", function(){ PhoneBridge.mediaPrev(); });
@@ -1631,6 +2170,8 @@
           if (currentView === "bridge") renderBridgeLive();
           syncMediaFromBridge(false);
         }, 3000);
+        if (PhoneBridge.isPreview()) $("railExit").hidden = false;
+        $("railExit").addEventListener("click", function(){ PhoneBridge.exitPreview(); });
         renderPhoneStatus(); renderMediaPage(); renderBridgeLive();
       })();
     </script>

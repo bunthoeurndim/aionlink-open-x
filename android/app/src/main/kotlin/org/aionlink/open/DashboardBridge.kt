@@ -37,12 +37,18 @@ import java.io.ByteArrayOutputStream
  *
  * Methods are synchronous getters returning JSON, because the page polls them every few
  * seconds; the native side also pushes "media" through PhoneBridge._push when playback
- * starts, so the Media page opens promptly instead of waiting for the next poll.
+ * starts, so the Dynamic Island pill pops up promptly instead of waiting for the next poll.
  */
 class DashboardBridge(
     context: Context,
     /** What the Media page reports as the sound route ("Car speakers via Bluetooth" by default). */
     private val audioRoute: () -> String = { "Car speakers via Bluetooth" },
+    /** True in the on-phone preview; the car dashboard is never a preview. */
+    private val isPreviewMode: Boolean = false,
+    /** Finish the preview activity (called from the page's rail ✕ button). */
+    private val onExitPreview: () -> Unit = {},
+    /** Open a URL as the WebView's main document, without the bridge (dashboard browser). */
+    private val onOpenBrowser: (String) -> Unit = {},
 ) {
     private val appContext = context.applicationContext
 
@@ -178,6 +184,23 @@ class DashboardBridge(
             appContext.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$digits"))
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         } catch (_: Exception) { }
+    }
+
+    /** True only in the on-phone preview; the car dashboard is never a preview. */
+    @JavascriptInterface
+    fun isPreview(): Boolean = isPreviewMode
+
+    /** Finish the preview activity (the dashboard page's rail ✕ button). */
+    @JavascriptInterface
+    fun exitPreview() {
+        if (isPreviewMode) onExitPreview()
+    }
+
+    /** Open a URL as the WebView's main document, without the bridge (dashboard browser). */
+    @JavascriptInterface
+    fun openBrowser(url: String) {
+        if (url.isBlank()) return
+        onOpenBrowser(url)
     }
 
     private fun deviceName(): String {

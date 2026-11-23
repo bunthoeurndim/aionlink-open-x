@@ -5,6 +5,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import java.util.WeakHashMap
 
 /**
  * The dashboard web apps: one local launcher page plus the web apps it opens. Shared by the car
@@ -38,6 +39,10 @@ object AppsWebView {
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
 
     private var mobileAgent: String? = null
+
+    /** Per-WebView dashboard-browser state: true while the main document is a third-party site. */
+    private class BrowserState(var inBrowserMode: Boolean = false)
+    private val browserStates = WeakHashMap<WebView, BrowserState>()
 
     fun isYouTubeUrl(url: String): Boolean =
         runCatching { android.net.Uri.parse(url).host?.contains("youtube.com") == true }.getOrDefault(false)
@@ -80,6 +85,8 @@ object AppsWebView {
      * WebView; the main frame is pinned to the local dashboard file, so no third-party
      * page can ever load where the bridge lives. Autoplay is allowed without a tap
      * because the owner already tapped a video tile to start it; pinch zoom stays off.
+     * The dashboard browser ([enterBrowserMode]) removes the bridge before loading a
+     * third-party site as the main document, and re-adds it on the way back.
      */
     fun createDashboard(context: Context, bridge: DashboardBridge): WebView {
         mobileAgent = WebSettings.getDefaultUserAgent(context)
@@ -96,11 +103,18 @@ object AppsWebView {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val url = request.url.toString()
-                    if (request.isForMainFrame) return url != DASHBOARD_URL
                     // Subframes are the dashboard page's own iframe (YouTube, Maps, …).
                     // A Maps intent:// cannot be retargeted into the iframe from here, and
                     // the dashboard's Maps links are embed URLs that do not redirect to one.
-                    return false
+                    if (!request.isForMainFrame) return false
+                    if (isBrowserMode(view)) {
+                        // Dashboard browser: the main document is a third-party site, so any
+                        // link may load there; an intent:// is rewritten to its https address.
+                        rewriteIntentUrl(url)?.let { view.loadUrl(it); return true }
+                        return false
+                    }
+                    // Dashboard: the bridge lives on the local page, so only it may load here.
+                    return url != DASHBOARD_URL
                 }
             }
         }
@@ -108,6 +122,29 @@ object AppsWebView {
 
     /** Load the web dashboard. */
     fun loadDashboard(view: WebView) { view.loadUrl(DASHBOARD_URL) }
+
+    /** True while the WebView's main document is a third-party site (dashboard browser). */
+    fun isBrowserMode(view: WebView): Boolean = browserStates[view]?.inBrowserMode == true
+
+    /**
+     * Dashboard browser (build 52): load a site as the WebView's MAIN document, after removing
+     * the bridge — the bridge must never be exposed to a third-party page. The caller shows its
+     * ⌂ Home overlay while the browser is open; tapping it calls [exitBrowserMode].
+     */
+    fun enterBrowserMode(view: WebView, bridge: DashboardBridge, url: String) {
+        browserStates.getOrPut(view) { BrowserState() }.inBrowserMode = true
+        view.removeJavascriptInterface("AndroidBridge")
+        useMobileAgent(view)
+        view.loadUrl(url)
+    }
+
+    /** Back to the dashboard: re-add the bridge first, then reload the local page. */
+    fun exitBrowserMode(view: WebView, bridge: DashboardBridge) {
+        browserStates.getOrPut(view) { BrowserState() }.inBrowserMode = false
+        view.removeJavascriptInterface("AndroidBridge")
+        view.addJavascriptInterface(bridge, "AndroidBridge")
+        loadDashboard(view)
+    }
 
     /** Load a YouTube page with the TV agent, so /tv serves the TV interface. */
     fun loadYouTube(view: WebView, url: String) { view.settings.userAgentString = TV_USER_AGENT; view.loadUrl(url) }

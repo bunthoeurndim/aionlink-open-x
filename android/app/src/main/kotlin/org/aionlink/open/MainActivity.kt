@@ -711,7 +711,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         val video = projection.stream.value
         appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (web dashboard, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
-        appendLine("Dashboard: web; GPS speed=${if (getApplication<android.app.Application>().checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) "allowed" else "not allowed — gauge shows --"}")
+        appendLine("Dashboard: web; GPS speed=${if (getApplication<android.app.Application>().checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) "allowed" else "not allowed — gauge shows --"}; navigation=Ferrostar live (Valhalla demo server, no key)")
         appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}; reduce bass clipping: ${if (projection.quality.reduceClipping.value) "ON" else "OFF"}")
         appendLine("Last car-found alert: ${AutoConnectService.lastAlertAt(getApplication()).let { if (it == 0L) "never" else java.time.Instant.ofEpochMilli(it).toString() }}")
         appendLine("Auto-reconnect: ${if (reconnecting) "attempt $reconnectAttempts of $maxReconnectAttempts after a drop" else "idle"}")
@@ -1140,7 +1140,7 @@ class MainActivity : ComponentActivity() {
                 Text(if (carMode) "Mode: CAR (AionLink panel, phone screen off)" else "Mode: MIRROR (what the phone shows)")
             }
             if (carMode) {
-                Text("Car mode: the car shows the web dashboard — clock, GPS speed, music with controls, maps and apps. You can turn off the phone screen after connecting. " +
+                Text("Car mode: the car shows the web dashboard — clock, GPS speed, music with controls, live navigation, maps and apps. You can turn off the phone screen after connecting. " +
                     "Sound comes through the car's Bluetooth; if you also tap “Prepare capture”, sending it via AionLink is attempted.")
                 OutlinedButton(onClick = {
                     context.startActivity(Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -1176,7 +1176,7 @@ class MainActivity : ComponentActivity() {
             if (carMode) {
                 OutlinedButton(onClick = { context.startActivity(Intent(context, AppsPreviewActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth()) {
-                    Text("Preview the new dashboard on this phone (no car needed)")
+                    Text("Preview the dashboard on this phone (no car needed)")
                 }
             }
             Text("Android Auto", style = MaterialTheme.typography.titleMedium)

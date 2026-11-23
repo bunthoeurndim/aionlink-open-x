@@ -6,9 +6,10 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.view.Gravity
+import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
-import android.widget.LinearLayout
+import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.activity.ComponentActivity
 import androidx.activity.OnBackPressedCallback
@@ -21,10 +22,15 @@ import androidx.core.content.ContextCompat
  * owner can try it without the car. Touch, keyboard and pinch work here as on any phone
  * screen; the car shows the same pages through the single-pointer touch path, with no
  * keyboard and no pinch. GPS speed works here too, from the phone's own GPS.
+ *
+ * Build 52: no native top bar — the WebView fills the whole screen and the dashboard
+ * page's own rail ✕ button (visible only in the preview, via the bridge's isPreview)
+ * exits. Android back still finishes the preview too.
  */
 class AppsPreviewActivity : ComponentActivity() {
     private var webView: WebView? = null
     private var bridge: DashboardBridge? = null
+    private var homeOverlay: TextView? = null
 
     private val locationPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
@@ -39,30 +45,45 @@ class AppsPreviewActivity : ComponentActivity() {
             != PackageManager.PERMISSION_GRANTED) {
             locationPermission.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         }
-        val root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        // Build 52: no native top bar — the WebView fills the whole screen and the
+        // dashboard page's own rail ✕ button (visible only in the preview) exits.
+        val root = FrameLayout(this).apply {
             setBackgroundColor(0xFF0B0F14.toInt())
             layoutParams = ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         }
-        val bar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(12), dp(16), dp(12))
-        }
-        bar.addView(topButton("‹ Back") { finish() })
-        bar.addView(TextView(this).apply {
-            text = "Preview"
-            setTextColor(0xFF9FB3C8.toInt()); textSize = 16f; gravity = Gravity.CENTER_VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(16), 0, 0, 0) }
-        })
-        bar.addView(topButton("✕ Close") { finish() })
-        root.addView(bar)
-        val dashBridge = DashboardBridge(this)
+        val dashBridge = DashboardBridge(
+            this,
+            isPreviewMode = true,
+            onExitPreview = { finish() },
+            onOpenBrowser = { url ->
+                webView?.let { web -> bridge?.let { b -> AppsWebView.enterBrowserMode(web, b, url) } }
+                homeOverlay?.visibility = View.VISIBLE
+            },
+        )
         bridge = dashBridge
         val web = AppsWebView.createDashboard(this, dashBridge).apply {
-            layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f)
+            layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
         }
         webView = web
         root.addView(web)
+        homeOverlay = TextView(this).apply {
+            text = "⌂ Home"
+            textSize = 22f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(dp(20), dp(12), dp(20), dp(12))
+            background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0xCC17181C.toInt()) }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.END,
+            ).apply { topMargin = dp(16); rightMargin = dp(16) }
+            visibility = View.GONE
+            isClickable = true
+            setOnClickListener {
+                webView?.let { w -> AppsWebView.exitBrowserMode(w, dashBridge) }
+                visibility = View.GONE
+            }
+        }.also { root.addView(it) }
         AppsWebView.loadDashboard(web)
         setContentView(root)
     }
@@ -83,13 +104,4 @@ class AppsPreviewActivity : ComponentActivity() {
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
-
-    private fun topButton(label: String, action: () -> Unit) = TextView(this).apply {
-        text = label; textSize = 20f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
-        setPadding(dp(18), dp(10), dp(18), dp(10))
-        background = GradientDrawable().apply { cornerRadius = dp(24).toFloat(); setColor(0xFF1E293B.toInt()) }
-        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { setMargins(0, 0, dp(12), 0) }
-        isClickable = true
-        setOnClickListener { action() }
-    }
 }

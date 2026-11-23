@@ -2,6 +2,8 @@ package org.aionlink.open
 
 import android.app.Presentation
 import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.hardware.display.DisplayManager
 import android.hardware.display.VirtualDisplay
 import android.media.MediaCodec
@@ -11,11 +13,13 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.os.SystemClock
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
+import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -207,7 +211,7 @@ class CarModeDisplay(
 /** The car dashboard is now the web dashboard (assets/carhome/dashboard.html): clock, GPS
  * speed, media with controls, navigation, weather and the app grid, drawn on the virtual
  * display by one WebView. The page polls DashboardBridge for live phone data, and the bridge
- * pushes a "media" event when playback starts, so the Media page opens by itself. The native
+ * pushes a "media" event when playback starts, so the Dynamic Island pill pops up. The native
  * dashboard cards and the separate Apps launcher are gone — the dashboard's app grid is the
  * launcher now. The WebView is created once per session and destroyed with it. */
 class CarDashboardView(
@@ -216,14 +220,40 @@ class CarDashboardView(
     private val audioRoute: () -> String = { "Car speakers via Bluetooth" },
 ) : FrameLayout(context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private val bridge = DashboardBridge(context, audioRoute)
+    private val bridge = DashboardBridge(
+        context, audioRoute,
+        onOpenBrowser = { url ->
+            AppsWebView.enterBrowserMode(webView, bridge, url)
+            homeOverlay.visibility = View.VISIBLE
+        },
+    )
     private val webView = AppsWebView.createDashboard(context, bridge).apply {
         layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+    }
+    /** ⌂ Home, shown only while the dashboard browser is open (third-party main document). */
+    private val homeOverlay = TextView(context).apply {
+        text = "⌂ Home"
+        textSize = 22f
+        setTextColor(Color.WHITE)
+        gravity = Gravity.CENTER
+        setPadding(dp(20), dp(12), dp(20), dp(12))
+        background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0xCC17181C.toInt()) }
+        layoutParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP or Gravity.END,
+        ).apply { topMargin = dp(16); rightMargin = dp(16) }
+        visibility = View.GONE
+        isClickable = true
+        setOnClickListener {
+            AppsWebView.exitBrowserMode(webView, bridge)
+            visibility = View.GONE
+        }
     }
     private var lastPlaying = false
 
     init {
         addView(webView)
+        addView(homeOverlay)
         AppsWebView.loadDashboard(webView)
         bridge.start()
         onAppsNote("Web dashboard opened")
@@ -236,6 +266,8 @@ class CarDashboardView(
             }
         }
     }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     fun release() {
         scope.cancel()
