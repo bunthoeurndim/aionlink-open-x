@@ -22,6 +22,8 @@ import android.view.MotionEvent
 import android.view.Surface
 import android.view.View
 import android.view.ViewGroup
+import android.webkit.WebView
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
@@ -89,7 +91,7 @@ class CarModeDisplay(
             presentation = if (!externalContent) object : Presentation(context, virtual.display) {
                 override fun onCreate(savedInstanceState: Bundle?) {
                     super.onCreate(savedInstanceState)
-                    setContentView(CarDashboardView(getContext()).also { dashboard = it })
+                    setContentView(CarDashboardView(getContext(), onNote).also { dashboard = it })
                 }
                 override fun onStop() { dashboard?.release(); super.onStop() }
             }.also { it.show() }
@@ -214,8 +216,10 @@ class CarModeDisplay(
     }
 }
 
-/** The car dashboard: clock, battery, media with controls and the current navigation instruction. Plain Views. */
-class CarDashboardView(context: Context) : LinearLayout(context) {
+/** The car dashboard: clock, battery, media with controls and the current navigation instruction. Plain Views.
+ * The "Apps" button swaps this view for a full-screen WebView with a local launcher page (YouTube, Maps,
+ * Weather); the WebView is created lazily, paused when hidden, and destroyed with the dashboard. */
+class CarDashboardView(context: Context, private val onAppsNote: (String) -> Unit = {}) : FrameLayout(context) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val clock = text(110f, bold = true)
     private val date = text(30f)
@@ -224,39 +228,137 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
     private val mediaTitle = text(40f, bold = true)
     private val mediaArtist = text(28f, color = 0xFFCBD5E1.toInt())
     private val mediaArt = ImageView(context).apply {
-        layoutParams = LayoutParams(dp(120), dp(120)); scaleType = ImageView.ScaleType.CENTER_CROP
+        layoutParams = LinearLayout.LayoutParams(dp(120), dp(120)); scaleType = ImageView.ScaleType.CENTER_CROP
     }
     private val mediaProgress = ProgressBar(context, null, android.R.attr.progressBarStyleHorizontal).apply {
         max = 1000
-        layoutParams = LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(8)).apply { topMargin = dp(16) }
+        layoutParams = LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(8)).apply { topMargin = dp(16) }
     }
     private var lastInfo: CarInfo? = null
     private val playButton = button("▶") { CarInfoListener.playPause() }
-    private val navIcon = ImageView(context).apply { layoutParams = LayoutParams(dp(120), dp(120)) }
+    private val navIcon = ImageView(context).apply { layoutParams = LinearLayout.LayoutParams(dp(120), dp(120)) }
     private val navTitle = text(40f, bold = true)
     private val navText = text(28f, color = 0xFFCBD5E1.toInt())
     private val tick = object : Runnable {
         override fun run() { updateClock(); updateProgress(); postDelayed(this, 1000) }
     }
-
-    init {
+    private val appsButton = textButton("▦  Apps") { showApps() }
+    private val dashboardRow = LinearLayout(context).apply {
         orientation = HORIZONTAL
         setBackgroundColor(0xFF0B0F14.toInt())
         setPadding(dp(32), dp(32), dp(32), dp(32))
-        addView(column(1f, clock, date, battery, text(20f, color = 0xFF64748B.toInt()).apply { text = "AionLink · Car mode" }))
-        addView(card(1.3f).apply {
+        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+    }
+    private val webContainer = FrameLayout(context).apply {
+        visibility = View.GONE
+        setBackgroundColor(0xFF0B0F14.toInt())
+        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+    }
+    private val webColumn = LinearLayout(context).apply {
+        orientation = VERTICAL
+        layoutParams = FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT)
+    }
+    private val confirmCard = LinearLayout(context).apply {
+        orientation = VERTICAL; gravity = Gravity.CENTER
+        setPadding(dp(32), dp(32), dp(32), dp(32))
+        background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0xFF111827.toInt()) }
+        layoutParams = FrameLayout.LayoutParams(dp(700), FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER)
+        visibility = View.GONE
+    }
+    private var appsWebView: WebView? = null
+    private var youtubeConfirmed = false
+    private var pendingYouTubeUrl: String? = null
+
+    init {
+        dashboardRow.addView(column(1f, clock, date, battery, text(20f, color = 0xFF64748B.toInt()).apply { text = "AionLink · Car mode" }, appsButton))
+        dashboardRow.addView(card(1.3f).apply {
             addView(mediaArt); addView(mediaApp); addView(mediaTitle); addView(mediaArtist); addView(mediaProgress)
             addView(LinearLayout(context).apply {
                 orientation = HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(24), 0, 0)
                 addView(button("⏮") { CarInfoListener.previous() }); addView(playButton); addView(button("⏭") { CarInfoListener.next() })
             })
         })
-        addView(card(1.3f).apply { addView(navIcon); addView(navTitle); addView(navText) })
+        dashboardRow.addView(card(1.3f).apply { addView(navIcon); addView(navTitle); addView(navText) })
+        webColumn.addView(topBar())
+        webContainer.addView(webColumn)
+        webContainer.addView(confirmCard)
+        addView(dashboardRow)
+        addView(webContainer)
         post(tick)
         scope.launch { CarInfoListener.info.collect(::render) }
     }
 
-    fun release() { removeCallbacks(tick); scope.cancel() }
+    fun release() {
+        removeCallbacks(tick); scope.cancel()
+        appsWebView?.let { web ->
+            web.stopLoading()
+            (web.parent as? ViewGroup)?.removeView(web)
+            web.destroy()
+        }
+        appsWebView = null
+    }
+
+    /** The Apps button opens the launcher; the WebView is built once and kept for this session. */
+    private fun showApps() {
+        if (appsWebView == null) {
+            appsWebView = AppsWebView.create(context, onYouTubeTap = { url -> showYouTubeConfirm(url) }).apply {
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f)
+            }.also { webColumn.addView(it) }
+            AppsWebView.loadLauncher(appsWebView!!)
+        }
+        dashboardRow.visibility = View.GONE
+        webContainer.visibility = View.VISIBLE
+        appsWebView?.onResume()
+        onAppsNote("Dashboard web apps opened")
+    }
+
+    private fun showDashboard() {
+        appsWebView?.onPause()
+        webContainer.visibility = View.GONE
+        confirmCard.visibility = View.GONE
+        dashboardRow.visibility = View.VISIBLE
+        onAppsNote("Dashboard web apps closed")
+    }
+
+    /** YouTube is parked-only: ask once per dashboard session, then load the tapped link. */
+    private fun showYouTubeConfirm(url: String) {
+        if (youtubeConfirmed) { appsWebView?.loadUrl(url); return }
+        pendingYouTubeUrl = url
+        confirmCard.removeAllViews()
+        confirmCard.addView(text(30f, bold = true).apply {
+            text = "Video is for parked use only."
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        })
+        confirmCard.addView(text(24f, color = 0xFFCBD5E1.toInt()).apply {
+            text = "Only watch YouTube when the car is parked."
+            gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(12) }
+        })
+        confirmCard.addView(LinearLayout(context).apply {
+            orientation = HORIZONTAL; gravity = Gravity.CENTER
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(24) }
+            addView(textButton("Parked — open YouTube") {
+                youtubeConfirmed = true; confirmCard.visibility = View.GONE
+                pendingYouTubeUrl?.let { appsWebView?.loadUrl(it) }; pendingYouTubeUrl = null
+            })
+            addView(textButton("Cancel") { confirmCard.visibility = View.GONE; pendingYouTubeUrl = null })
+        })
+        confirmCard.visibility = View.VISIBLE
+    }
+
+    private fun topBar() = LinearLayout(context).apply {
+        orientation = HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(24), dp(16), dp(24), dp(16))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        addView(textButton("⌂ Home") { appsWebView?.let(AppsWebView::loadLauncher) })
+        addView(textButton("‹ Back") { appsWebView?.let { if (it.canGoBack()) it.goBack() else AppsWebView.loadLauncher(it) } })
+        addView(textButton("✕ Close") { showDashboard() })
+        addView(text(24f, color = 0xFF9FB3C8.toInt()).apply {
+            text = "Apps — same pages as the phone preview"
+            layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply { setMargins(dp(16), 0, 0, 0) }
+        })
+    }
 
     private fun render(info: CarInfo) {
         lastInfo = info
@@ -302,6 +404,15 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
         battery.text = level?.let { "Phone: $it %" + if (charging) " · charging" else "" } ?: ""
     }
 
+    private fun textButton(label: String, action: () -> Unit) = TextView(context).apply {
+        text = label; textSize = 26f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
+        background = GradientDrawable().apply { cornerRadius = dp(40).toFloat(); setColor(0xFF1E293B.toInt()) }
+        setPadding(dp(24), dp(14), dp(24), dp(14))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, dp(8), dp(12), 0) }
+        isClickable = true
+        setOnClickListener { action() }
+    }
+
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
     private fun text(size: Float, bold: Boolean = false, color: Int = Color.WHITE) = TextView(context).apply {
@@ -312,14 +423,14 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
     private fun button(label: String, action: () -> Unit) = TextView(context).apply {
         text = label; textSize = 52f; setTextColor(Color.WHITE); gravity = Gravity.CENTER
         background = GradientDrawable().apply { cornerRadius = dp(48).toFloat(); setColor(0xFF1E293B.toInt()) }
-        layoutParams = LayoutParams(dp(130), dp(110)).apply { setMargins(dp(12), 0, dp(12), 0) }
+        layoutParams = LinearLayout.LayoutParams(dp(130), dp(110)).apply { setMargins(dp(12), 0, dp(12), 0) }
         isClickable = true
         setOnClickListener { action() }
     }
 
     private fun column(weight: Float, vararg views: View) = LinearLayout(context).apply {
         orientation = VERTICAL; gravity = Gravity.CENTER_VERTICAL
-        layoutParams = LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
+        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight)
         views.forEach(::addView)
     }
 
@@ -327,6 +438,6 @@ class CarDashboardView(context: Context) : LinearLayout(context) {
         orientation = VERTICAL; gravity = Gravity.CENTER
         setPadding(dp(28), dp(28), dp(28), dp(28))
         background = GradientDrawable().apply { cornerRadius = dp(28).toFloat(); setColor(0xFF111827.toInt()) }
-        layoutParams = LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(16), 0, 0, 0) }
+        layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, weight).apply { setMargins(dp(16), 0, 0, 0) }
     }
 }

@@ -44,6 +44,7 @@
         <activity android:name=".CarDisplayHostActivity" android:exported="false" android:excludeFromRecents="true"
             android:taskAffinity="org.aionlink.open.cardisplay" android:resizeableActivity="true" android:allowEmbedded="true"
             android:theme="@android:style/Theme.Black.NoTitleBar.Fullscreen" />
+        <activity android:name=".AppsPreviewActivity" android:exported="false" />
         <service android:name=".CarModeService" android:exported="false" android:foregroundServiceType="connectedDevice" />
         <service android:name=".AutoConnectService" android:exported="false" android:foregroundServiceType="connectedDevice" />
         <receiver android:name=".AutoConnectBootReceiver" android:exported="false">

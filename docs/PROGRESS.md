@@ -3056,3 +3056,19 @@ el 2026-11-18 con el nuevo flujo "Release APK" (se ejecuta a mano desde
 Actions; descarga el artefacto dentro de GitHub y crea la release con las
 notas del CHANGELOG.md). A partir de ahora, una release por cada build
 entregada.
+
+## Lanzador de apps web en el panel — build 49 (2026-11-23)
+
+El panel del coche ya no es solo relojes y música: el botón "▦ Apps" abre
+un WebView a pantalla completa con una página local (`assets/carhome/
+index.html`, sin servidor) y tres fichas: YouTube (youtube.com/tv), Maps
+y el tiempo de Phnom Penh. La misma vista y la misma configuración del
+WebView se pueden probar en el teléfono sin coche: "Preview the dashboard
+web apps on this phone" en opciones avanzadas abre `AppsPreviewActivity`.
+Sin puente JavaScript en esta fase: las páginas no tocan nada del teléfono.
+YouTube pide confirmar "Parked only" una vez por sesión; el sonido es el
+del panel (Bluetooth del coche, o AAC si se preparó la captura). Spotify
+queda fuera por ahora: necesita escribir usuario y contraseña y en el coche
+no hay teclado. El WebView se crea al primer toque, se pausa al cerrar y se
+destruye al final de la sesión. Pendiente la prueba en el coche (que el
+WebView se vea en la pantalla virtual) y la vista previa en el teléfono.

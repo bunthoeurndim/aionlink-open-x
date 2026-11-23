@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apps</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0B0F14; color: #fff; font-family: sans-serif; padding: 32px; }
+  h1 { font-size: 40px; margin-bottom: 8px; }
+  p.sub { color: #9FB3C8; font-size: 22px; margin-bottom: 32px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+  a.tile { display: block; background: #111827; border-radius: 28px; padding: 36px 28px; text-decoration: none; color: #fff; min-height: 300px; }
+  a.tile:active { background: #1E293B; }
+  .glyph { font-size: 84px; line-height: 1; }
+  .label { font-size: 36px; font-weight: bold; margin-top: 20px; }
+  .desc { color: #CBD5E1; font-size: 22px; margin-top: 10px; line-height: 1.4; }
+</style>
+</head>
+<body>
+  <h1>Apps</h1>
+  <p class="sub">Tap a tile to open it. Use &#8249; Back to come back here, &#10005; to return to the dashboard.</p>
+  <div class="grid">
+    <a class="tile" href="https://www.youtube.com/tv">
+      <div class="glyph" style="color:#FF4444">&#9654;</div>
+      <div class="label">YouTube</div>
+      <div class="desc">Videos on the car screen. Parked only.</div>
+    </a>
+    <a class="tile" href="https://www.google.com/maps">
+      <div class="glyph" style="color:#34A853">&#8982;</div>
+      <div class="label">Maps</div>
+      <div class="desc">Browse the map and directions.</div>
+    </a>
+    <a class="tile" href="https://wttr.in/Phnom_Penh">
+      <div class="glyph" style="color:#F59E0B">&#9728;</div>
+      <div class="label">Weather</div>
+      <div class="desc">Phnom Penh weather, right now.</div>
+    </a>
+  </div>
+</body>
+</html>

@@ -1,5 +1,11 @@
 # Changes
 
+## 0.42.0.49-research — 2026-11-23
+
+- Dashboard Apps launcher: a "▦ Apps" button on the dashboard opens a web launcher on the car screen, with tiles for YouTube, Maps, and Weather. Tap a tile and that web app opens full-screen; Home returns to the launcher, Close returns to the dashboard. YouTube asks once per session to confirm the car is parked.
+- Preview on the phone: Advanced options has "Preview the dashboard web apps on this phone (no car needed)" — the same launcher and the same WebView settings, shown on the phone so it can be tried without the car. Touch, keyboard, and pinch work in the preview; on the car, taps and drag-scroll work, with no keyboard and no pinch.
+- The launcher is a single local page (`assets/carhome/index.html`, no server); the WebView has JavaScript and storage on and no bridge to the phone, so the pages cannot touch anything on the phone. Spotify is not a tile yet — it needs a login typed in, and there is no keyboard on the car. Sound is the usual dashboard deal: the car's Bluetooth by default, AAC via CarLink if "Prepare audio via AionLink" was tapped.
+
 ## 0.42.0.48-research — 2026-11-18
 
 - Reduce bass clipping (toggle in Advanced options): the audio is attenuated by 3 dB before AAC encoding, on both the mirror and Android Auto paths, so heavy bass no longer breaks up on the car's CarLink sound. Flip it on during a bass-heavy song and compare — the toggle itself is the test; turn the car volume up a notch to compensate.

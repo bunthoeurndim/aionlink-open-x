@@ -1162,6 +1162,12 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+            if (carMode) {
+                OutlinedButton(onClick = { context.startActivity(Intent(context, AppsPreviewActivity::class.java)) },
+                    modifier = Modifier.fillMaxWidth()) {
+                    Text("Preview the dashboard web apps on this phone (no car needed)")
+                }
+            }
             Text("Android Auto", style = MaterialTheme.typography.titleMedium)
             if (OpenHeadunit.installed(context)) {
                 Text("OpenHeadunit Lite shows Android Auto on this phone; in MIRROR mode, AionLink brings it to the car screen with touch and sound. " +

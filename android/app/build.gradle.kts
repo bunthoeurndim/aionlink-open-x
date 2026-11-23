@@ -11,7 +11,7 @@ android {
         // Build tracking: bump both on every delivered build. versionName is 0.42.0.<code>-research
         // so the home screen (which shows up to the first "-") and the diagnostics export both
         // carry the build number; the workflow names the APK file from this versionName.
-        versionCode = 48; versionName = "0.42.0.48-research"
+        versionCode = 49; versionName = "0.42.0.49-research"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
     // Optional fixed signing key (android/keystore.properties, never committed) so every PC produces APKs that update
