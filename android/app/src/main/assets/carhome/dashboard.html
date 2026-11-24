@@ -257,7 +257,6 @@
       .tile.whatsapp{ background:#25d366; }
       .tile.xapp{ background:#0a0a0c; }
       .tile.youtube{ background:#ff0033; }
-      .tile.gmaps{ background:#fff; border:1.5px solid var(--line); }
 
       /* Nav status card */
       .nav-card{
@@ -799,9 +798,6 @@
                     <svg viewBox="0 0 48 48" aria-hidden="true"><rect x="5" y="11" width="38" height="26" rx="7" fill="#fff"/><path d="M20.5 17.8 31 24l-10.5 6.2V17.8Z" fill="#ff0033"/></svg>
                     
                   </button>
-                  <button type="button" class="tile gmaps" data-app="gmaps" aria-label="Open Google Maps">
-                    <svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4.5c-7.7 0-14 6.1-14 13.7C10 29.6 24 43.5 24 43.5S38 29.6 38 18.2C38 10.6 31.7 4.5 24 4.5Z" fill="#ea4335"/><path d="M24 4.5c-2.9 0-5.6 1-7.8 2.5L24 18.2l7.8-11.2A13.8 13.8 0 0 0 24 4.5Z" fill="#fbbc04" opacity=".9"/><circle cx="24" cy="18.4" r="5.6" fill="#fff"/></svg>
-                  </button>
                   <button type="button" class="tile add" id="addTile" aria-label="Add apps">+</button>
                 </div>
 
@@ -1261,7 +1257,7 @@
             else if (nav === "apps") openStart();
             else if (nav === "music") showView("media");
             else if (nav === "phone") showView("phone");
-            else if (nav === "nav") openApp(APPS.gmaps);
+            else if (nav === "nav") openApp(APPS.osm);
             else if (nav === "browser") openStart();
           });
         }
@@ -1270,7 +1266,6 @@
         $("mediaGoHome").addEventListener("click", function(){ showView("home"); });
 
         /* ---------- WebView ---------- */
-        var MAPS_EMBED = "https://maps.google.com/maps?q=Phnom%20Penh&z=13&output=embed";
         /* frame: "embed" = URL made for frames (loads here) · "local" = built-in page · "fallback" = site refuses browser framing, use bridge page */
         var APPS = {
           waze:      { name:"Waze",      url:"https://www.waze.com/live-map", host:"waze.com", frame:"fallback", pkg:"com.waze" },
@@ -1285,7 +1280,6 @@
           doordash:  { name:"DoorDash",  url:"https://www.doordash.com", host:"doordash.com", frame:"fallback", pkg:"com.dd.doordash" },
           spotify:   { name:"Spotify",   url:"local:media", host:"Phone Bridge · Media", frame:"local" },
           youtube:   { name:"YouTube",   url:"local:youtube", host:"YouTube embed player", frame:"local", video:true },
-          gmaps:     { name:"Google Maps", url:MAPS_EMBED, host:"maps.google.com", frame:"embed" },
           osm:       { name:"Map — OpenStreetMap", url:"local:nav", host:"Ferrostar · OpenStreetMap", frame:"local" },
           weather:   { name:"Weather",   url:"local:weather", host:"Open-Meteo · Phnom Penh", frame:"local" },
           radio:     { name:"Web radio", url:"https://radio.garden", host:"radio.garden", frame:"fallback", pkg:"" },
@@ -1664,10 +1658,10 @@
 
         /* Start page tiles */
         (function buildStart(){
-          var order = ["youtube","gmaps","osm","weather","radio","plugshare","spotify","waze"];
-          var colors = { youtube:"#ff0033", gmaps:"#4285f4", osm:"#7ebc6f", weather:"#2b7fff", radio:"#8e44ad", plugshare:"#00a651", spotify:"#1db954", waze:"#39c2f1" };
+          var order = ["youtube","osm","weather","radio","plugshare","spotify","waze"];
+          var colors = { youtube:"#ff0033", osm:"#7ebc6f", weather:"#2b7fff", radio:"#8e44ad", plugshare:"#00a651", spotify:"#1db954", waze:"#39c2f1" };
           var grid = $("startGrid"), html = "";
-          var glyphs = { youtube:"▶", gmaps:"◎", osm:"◈", weather:"☀", radio:"♪", plugshare:"⚡", spotify:"●", waze:"☺" };
+          var glyphs = { youtube:"▶", osm:"◈", weather:"☀", radio:"♪", plugshare:"⚡", spotify:"●", waze:"☺" };
           order.forEach(function(key){
             var a = APPS[key];
             html += '<button type="button" class="start-tile" data-start="' + key + '">' +
@@ -1693,14 +1687,15 @@
         $("chipMore").addEventListener("click", openStart);
         $("playerOpen").addEventListener("click", function(){ openApp(APPS.spotify); });
         $("weatherCard").addEventListener("click", function(){ showView("web"); openWeather(APPS.weather); });
-        $("navCard").addEventListener("click", function(){ openApp(APPS.gmaps); });
+        $("navCard").addEventListener("click", function(){ openApp(APPS.osm); });
 
-        /* Search & chips → Maps WebView */
+        /* Search & chips → OpenStreetMap navigation (build 53): the top search
+           and the category chips (ATM, Restaurants…) search Nominatim in the
+           Ferrostar nav view and route there — Google Maps is gone. */
         function mapsSearch(q){
-          var embedUrl = "https://maps.google.com/maps?q=" + encodeURIComponent(q) + "&z=14&output=embed";
-          var app = { name:"Google Maps — " + q, host:"maps.google.com · " + q, embed:true, url:embedUrl };
-          showView("web");
-          loadUrl(app, embedUrl);
+          openNav(APPS.osm);
+          $("navSearchInput").value = q;
+          navSearch(q);
         }
         $("searchForm").addEventListener("submit", function(ev){
           ev.preventDefault();

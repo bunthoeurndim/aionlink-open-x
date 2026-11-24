@@ -15,24 +15,38 @@ import java.util.WeakHashMap
  * Build 51 replaces the native dashboard with the full web dashboard (assets/carhome/dashboard.html).
  * That page DOES have a bridge — DashboardBridge, injected as window.AndroidBridge — but only
  * the local dashboard page ever sees it: createDashboard pins the WebView's main frame to the
- * local file, and the third-party pages the dashboard opens run in the dashboard's own iframe,
- * a different origin that cannot reach the bridge.
+ * local dashboard URL, and the third-party pages the dashboard opens run in the dashboard's
+ * own iframe, a different origin that cannot reach the bridge.
+ *
+ * Build 53: the dashboard is no longer a file:// page. DashboardHttpServer serves
+ * assets/carhome/ over http://127.0.0.1, so the page has a real origin: a file:// page
+ * sends no HTTP Referer, which is why YouTube refused the embed with error 153, and an
+ * ES module (the Ferrostar bundle) never loaded from file://. If the server cannot start
+ * (every port busy) the file:// page is the fallback — YouTube and the nav module fail
+ * again there, but the rest of the dashboard still works.
  *
  * Build 50 fixes, from the first preview test:
  * - YouTube: youtube.com/tv redirects to youtube.com when the client looks like a mobile
  *   browser, so YouTube loads get a desktop (TV) user agent; everything else keeps the
  *   phone's mobile agent, so pages stay phone-sized.
- * - Google Maps: google.com/maps answers with an intent:// link to the Maps app, which a
+ * - Map links: a maps site can answer with an intent:// link to the Maps app, which a
  *   WebView cannot load (ERR_UNKNOWN_URL_SCHEME). The intent is rewritten to the plain
- *   https address it carries, so Maps stays in the WebView — opening the Maps app on the
- *   phone would be useless on the car screen.
+ *   https address it carries, so the map stays in the WebView — opening the Maps app on
+ *   the phone would be useless on the car screen. (Build 53 removes the Google Maps
+ *   tile; the rewrite stays for any map link a third-party page still produces.) (Build 53 removes the Google Maps tile;
+ *   the rewrite stays for any Maps link a third-party page still produces.)
  * - The launcher is a file:// page and its weather widget fetches Open-Meteo over https;
  *   that needs allowUniversalAccessFromFileURLs, which only affects file:// pages (ours).
  */
 object AppsWebView {
     const val LAUNCHER_URL = "file:///android_asset/carhome/index.html"
     const val MAP_URL = "file:///android_asset/carhome/map.html"
-    const val DASHBOARD_URL = "file:///android_asset/carhome/dashboard.html"
+
+    /** Fallback when the local server cannot start: the file:// page still loads, but YouTube embeds get no Referer (error 153) and the Ferrostar module may not load. */
+    private const val FILE_DASHBOARD_URL = "file:///android_asset/carhome/dashboard.html"
+
+    /** The dashboard URL: the local server's http origin when it is up, else the file:// fallback. */
+    fun dashboardUrl(): String = DashboardHttpServer.baseUrl()?.let { "$it/carhome/dashboard.html" } ?: FILE_DASHBOARD_URL
 
     /** Desktop Chrome: youtube.com/tv serves the TV interface to this instead of redirecting. */
     private const val TV_USER_AGENT =
@@ -82,13 +96,17 @@ object AppsWebView {
 
     /**
      * The full web dashboard. The bridge is injected here, so it exists only on this
-     * WebView; the main frame is pinned to the local dashboard file, so no third-party
-     * page can ever load where the bridge lives. Autoplay is allowed without a tap
-     * because the owner already tapped a video tile to start it; pinch zoom stays off.
-     * The dashboard browser ([enterBrowserMode]) removes the bridge before loading a
-     * third-party site as the main document, and re-adds it on the way back.
+     * WebView; the main frame is pinned to the local dashboard URL (served by
+     * DashboardHttpServer on 127.0.0.1, so the page has a real http origin), so no
+     * third-party page can ever load where the bridge lives. Autoplay is allowed
+     * without a tap because the owner already tapped a video tile to start it; pinch
+     * zoom stays off. The dashboard browser ([enterBrowserMode]) removes the bridge
+     * before loading a third-party site as the main document, and re-adds it on the
+     * way back. The server is started here (idempotent) and stopped when the
+     * dashboard is released (CarDashboardView.release / AppsPreviewActivity.onDestroy).
      */
     fun createDashboard(context: Context, bridge: DashboardBridge): WebView {
+        DashboardHttpServer.start(context)
         mobileAgent = WebSettings.getDefaultUserAgent(context)
         return WebView(context).apply {
             settings.javaScriptEnabled = true
@@ -103,9 +121,8 @@ object AppsWebView {
             webViewClient = object : WebViewClient() {
                 override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
                     val url = request.url.toString()
-                    // Subframes are the dashboard page's own iframe (YouTube, Maps, …).
-                    // A Maps intent:// cannot be retargeted into the iframe from here, and
-                    // the dashboard's Maps links are embed URLs that do not redirect to one.
+                    // Subframes are the dashboard page's own iframe (YouTube, …).
+                    // A Maps intent:// cannot be retargeted into the iframe from here.
                     if (!request.isForMainFrame) return false
                     if (isBrowserMode(view)) {
                         // Dashboard browser: the main document is a third-party site, so any
@@ -114,14 +131,14 @@ object AppsWebView {
                         return false
                     }
                     // Dashboard: the bridge lives on the local page, so only it may load here.
-                    return url != DASHBOARD_URL
+                    return url != dashboardUrl()
                 }
             }
         }
     }
 
-    /** Load the web dashboard. */
-    fun loadDashboard(view: WebView) { view.loadUrl(DASHBOARD_URL) }
+    /** Load the web dashboard (from the local server when it is up). */
+    fun loadDashboard(view: WebView) { view.loadUrl(dashboardUrl()) }
 
     /** True while the WebView's main document is a third-party site (dashboard browser). */
     fun isBrowserMode(view: WebView): Boolean = browserStates[view]?.inBrowserMode == true
@@ -155,7 +172,7 @@ object AppsWebView {
 
     /**
      * An intent:// URL carries a plain web address plus an Intent description, e.g.
-     * intent://www.google.com/maps?...#Intent;scheme=https;package=com.google...;end
+     * intent://www.example.com/maps?...#Intent;scheme=https;package=com.example...;end
      * A WebView cannot load the intent: scheme; return the https address it carries, or null.
      */
     fun rewriteIntentUrl(url: String): String? {

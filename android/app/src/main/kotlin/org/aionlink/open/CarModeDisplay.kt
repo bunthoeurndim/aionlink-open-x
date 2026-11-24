@@ -203,6 +203,9 @@ class CarModeDisplay(
         relay?.close(); relay = null
         presentation?.dismiss(); presentation = null
         dashboard = null
+        // The dashboard's release() already stops the server via onStop; this is
+        // belt-and-braces for any path where release() never ran (a no-op otherwise).
+        DashboardHttpServer.stop()
         display?.release(); display = null
         surface?.release(); surface = null
         codec?.let { try { it.stop() } catch (_: IllegalStateException) { }; it.release() }; codec = null
@@ -273,6 +276,7 @@ class CarDashboardView(
     fun release() {
         scope.cancel()
         bridge.stop()
+        DashboardHttpServer.stop()
         webView.stopLoading()
         (webView.parent as? ViewGroup)?.removeView(webView)
         webView.destroy()

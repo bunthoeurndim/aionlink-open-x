@@ -1,5 +1,13 @@
 # Changes
 
+## 0.42.0.53-research — 2026-11-24
+
+- Local HTTP server for the dashboard: the page is no longer a `file://` page. A tiny server inside the app (`DashboardHttpServer`, standard library only, no new dependency) serves `assets/carhome/` over `http://127.0.0.1:18765` (next ports up to +10 if it is busy, loopback only, GET + HEAD, no listing). This is the fix for both preview-test failures: a `file://` page sends no HTTP `Referer`, which is why YouTube refused the embed with error 153, and the Ferrostar ES module never loaded from `file://` — with a real http origin the embed carries a Referer and the module loads like a normal web page. The server starts when the dashboard WebView is created and stops when the dashboard closes (reference-counted, so a second dashboard or a double create cannot leak it or break it); if every port is busy the `file://` page is the fallback.
+- Google Maps tile removed: the Maps tile is gone from the app grid and the start page, and the Google Maps embed code is gone with it. The destination search and the category chips (ATM, Restaurants, Hotels, Gas stations) now open the OpenStreetMap navigation view and search there (Nominatim) — tap a result to route to it. The rail navigation button and the home navigation card open the same view.
+- Ferrostar navigation kept: the live turn-by-turn view from build 52 stays exactly as it was (Valhalla demo server, preset chips, big maneuver card, voice guidance) — the local server is what should make its module load this time. `ferrostar-bundle.js` stays in the app's files, now loaded over http.
+- YouTube unchanged: same IFrame API player, same 4-video picker, same parked-only confirm — only the page origin changed, which is what the player needed.
+- Known limits: voice guidance is unproven in this WebView; the Valhalla demo server is a courtesy service with fair-use limits — FOSSGIS asks published apps to notify them and send an identifying header (follow-up, not built yet); search is untypeable in the car (chips and presets work; typing works in the phone preview).
+
 ## 0.42.0.52-research — 2026-11-23
 
 - Preview top bar gone: the phone preview no longer has the native Back / Preview / Close row taking space — the WebView fills the whole screen. One ✕ exit button sits at the bottom of the dashboard page's left rail and only appears in the phone preview (the bridge reports `isPreview`); in the car there is no exit button. Android back still finishes the preview.

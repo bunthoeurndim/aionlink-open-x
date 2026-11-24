@@ -94,6 +94,7 @@ class AppsPreviewActivity : ComponentActivity() {
 
     override fun onDestroy() {
         bridge?.stop()
+        DashboardHttpServer.stop()
         webView?.let { web ->
             web.stopLoading()
             (web.parent as? ViewGroup)?.removeView(web)
