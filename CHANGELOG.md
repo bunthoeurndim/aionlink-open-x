@@ -1,5 +1,9 @@
 # Changes
 
+## 0.42.0.54-research — 2026-11-24
+
+- Fixed the dashboard not loading in the preview ("not found"): the app asked the local server for `/carhome/dashboard.html`, but the server's root already is `carhome/`, so it looked for `carhome/carhome/dashboard.html` and answered 404. The dashboard URL is now `/dashboard.html`; the Ferrostar bundle resolves the same way (it is a relative reference from the page).
+
 ## 0.42.0.53-research — 2026-11-24
 
 - Local HTTP server for the dashboard: the page is no longer a `file://` page. A tiny server inside the app (`DashboardHttpServer`, standard library only, no new dependency) serves `assets/carhome/` over `http://127.0.0.1:18765` (next ports up to +10 if it is busy, loopback only, GET + HEAD, no listing). This is the fix for both preview-test failures: a `file://` page sends no HTTP `Referer`, which is why YouTube refused the embed with error 153, and the Ferrostar ES module never loaded from `file://` — with a real http origin the embed carries a Referer and the module loads like a normal web page. The server starts when the dashboard WebView is created and stops when the dashboard closes (reference-counted, so a second dashboard or a double create cannot leak it or break it); if every port is busy the `file://` page is the fallback.

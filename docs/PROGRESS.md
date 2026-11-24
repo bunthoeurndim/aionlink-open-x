@@ -3147,3 +3147,12 @@ La prueba de la vista previa de la build 52 falló en dos sitios: YouTube daba �
 5. Versión 52 → 53 (`0.42.0.53-research`); CHANGELOG y esta sección actualizados. La página `dashboard.html` se generó con el script `~/workspace/aionlink-build53-adapt.py` (reemplazos anclados, `node --check` del script en línea y comprobación de que cada id existe).
 
 Límites conocidos: la guía por voz no está probada en este WebView; el servidor demo de Valhalla es un servicio de cortesía con límites de uso justo (el `X-Client-Id` y la notificación a FOSSGIS siguen pendientes); la búsqueda no se puede escribir en el coche (chips y predefinidos sí; escribir sí funciona en la vista previa). Pendiente la prueba de la vista previa en el teléfono y en el coche aparcado.
+
+## Panel web — build 54 (2026-11-24)
+
+La prueba de la vista previa de la build 53 falló de otra manera: el panel no cargaba — página en blanco con «not found». Diagnóstico (lectura del código, mismo día): el servidor sí funcionaba (respondía), pero la dirección estaba duplicada — `dashboardUrl()` pedía `/carhome/dashboard.html` mientras la raíz del servidor ya ES `carhome/`, así que buscaba `carhome/carhome/dashboard.html`, no lo encontraba y respondía 404 «not found» (el texto exacto de la captura). El bundle de Ferrostar habría fallado igual, porque es una referencia relativa desde la página.
+
+1. Corrección de una línea en `AppsWebView.kt`: la URL del panel pasa a `http://127.0.0.1:<puerto>/dashboard.html`. El servidor no cambia: su raíz sigue siendo `assets/carhome/`, así que `/dashboard.html` → `carhome/dashboard.html` y `./ferrostar-bundle.js` → `carhome/ferrostar-bundle.js`. El pin del marco principal y `loadDashboard` usan la misma `dashboardUrl()`, así que no hay más sitios que tocar.
+2. Versión 53 → 54 (`0.42.0.54-research`); CHANGELOG y esta sección actualizados. La build 53 ya estaba publicada, así que la corrección necesitaba un número nuevo.
+
+Límites conocidos: la guía por voz no está probada en este WebView; el servidor demo de Valhalla es un servicio de cortesía con límites de uso justo (el `X-Client-Id` y la notificación a FOSSGIS siguen pendientes); la búsqueda no se puede escribir en el coche (chips y predefinidos sí; escribir sí funciona en la vista previa). Pendiente la prueba de la vista previa en el teléfono y en el coche aparcado.

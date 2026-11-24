@@ -46,7 +46,7 @@ object AppsWebView {
     private const val FILE_DASHBOARD_URL = "file:///android_asset/carhome/dashboard.html"
 
     /** The dashboard URL: the local server's http origin when it is up, else the file:// fallback. */
-    fun dashboardUrl(): String = DashboardHttpServer.baseUrl()?.let { "$it/carhome/dashboard.html" } ?: FILE_DASHBOARD_URL
+    fun dashboardUrl(): String = DashboardHttpServer.baseUrl()?.let { "$it/dashboard.html" } ?: FILE_DASHBOARD_URL
 
     /** Desktop Chrome: youtube.com/tv serves the TV interface to this instead of redirecting. */
     private const val TV_USER_AGENT =
