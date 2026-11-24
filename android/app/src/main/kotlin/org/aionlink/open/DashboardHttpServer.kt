@@ -125,7 +125,7 @@ object DashboardHttpServer {
                 val bytes: ByteArray? = if (assetPath == null) null else runCatching {
                     context.assets.open(assetPath).use { stream -> stream.readBytes() }
                 }.getOrNull()
-                if (bytes == null) {
+                if (assetPath == null || bytes == null) {
                     respond(sock, 404, "Not Found", "text/plain; charset=utf-8", "not found".toByteArray(Charsets.UTF_8), false)
                     return
                 }
