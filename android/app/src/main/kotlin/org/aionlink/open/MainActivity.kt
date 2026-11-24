@@ -180,9 +180,23 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         event("Virtual display probe 1920x960 started in a foreground service; up to 12 minutes; not DeX and does not stream to the car")
     }
     fun captureGranted(resultCode: Int, data: android.content.Intent?) {
+        captureRequestPending = false
         if (resultCode != android.app.Activity.RESULT_OK || data == null) { event("Screen capture not authorized"); return }
         ProjectionService.start(getApplication(), resultCode, data)
         event("Screen capture authorized for this session; will be used after the receiver sends PLAY")
+    }
+
+    /** Mirror mode needs a capture grant for video; dashboard video needs none, so this is
+     * mirror only. The system dialog still needs one tap every time (Android privacy gate);
+     * zero-tap auto-share is impossible. */
+    private fun requestCaptureIfNeeded() {
+        if (projection.quality.mode() != ProjectionMode.MIRROR || ProjectionService.projection != null) {
+            captureRequestPending = false
+            return
+        }
+        captureRequestPending = true
+        mutableCaptureRequest.value = System.currentTimeMillis()
+        event("Mirror mode needs screen capture; opening the system dialog")
     }
     fun event(message: String) {
         // Events are already anonymized for export; mirroring them to the local log lets ADB follow a test.
@@ -200,6 +214,13 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     private var droppedEvents = 0
     private val mutableConnectionNotice = MutableStateFlow("Check the requirements before entering a code")
     val connectionNotice = mutableConnectionNotice.asStateFlow()
+    /** Semi-auto screen share (build 55): when a mirror-mode session authenticates without a
+     * capture grant, the app asks for capture itself instead of waiting for the Prepare button.
+     * The value is a timestamp so each request is a new emission; the UI launches the system
+     * dialog only while the activity is resumed, and resumed() re-emits while it is pending. */
+    private val mutableCaptureRequest = MutableStateFlow(0L)
+    val captureRequest = mutableCaptureRequest.asStateFlow()
+    private var captureRequestPending = false
     private class Prepared(val peerId: String, val local: LocalP2p)
     private var prepared: Prepared? = null
     private var attemptNumber = 0
@@ -301,6 +322,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
     }
     private fun stopAll(reason: String, restartWatch: Boolean = true) {
         prepareHandler.removeCallbacks(backgroundExpiry)
+        captureRequestPending = false
         clearAutoAuth("Automatic AUTH cancelled: $reason")
         cancelPrepared(reason); discovery.stop(); gatt.cancel(); bootstrap.cancel(reason); network.stop(reason)
         projection.stop(reason)
@@ -516,6 +538,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         projection.quality.refreshAutoWatch()
         resumeWatchIfIdle()
         maybeCheckForUpdate()
+        // If a capture request fired while the app was in the background, the UI could not
+        // launch the dialog then; ask again now that the activity is resumed.
+        if (captureRequestPending) requestCaptureIfNeeded()
     }
 
     private val updatePrefs = getApplication<Application>().getSharedPreferences("aionlink_updates", Context.MODE_PRIVATE)
@@ -712,7 +737,7 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
         appendLine("Projection mode: ${if (projection.quality.carMode.value) "CAR MODE (web dashboard, screen off)" else "MIRROR"}; " +
             "music/navigation access=${CarInfoListener.granted(getApplication())}; Android Auto receiver=${OpenHeadunit.label(getApplication())}")
         appendLine("Dashboard: web; GPS speed=${if (getApplication<android.app.Application>().checkSelfPermission(android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED) "allowed" else "not allowed — gauge shows --"}; navigation=Ferrostar live (Valhalla demo server, no key)")
-        appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}; reduce bass clipping: ${if (projection.quality.reduceClipping.value) "ON" else "OFF"}")
+        appendLine("Default mode: ${projection.quality.mode()}; auto-connect watch: ${if (projection.quality.autoWatch.value) "ON" else "OFF"}; keep 30 fps when hot: ${if (projection.quality.keepFullFpsWhenHot.value) "ON" else "OFF"}; reduce bass clipping: ${if (projection.quality.reduceClipping.value) "ON" else "OFF"}; mute phone when connected: ${if (projection.quality.mutePhoneWhenConnected.value) "ON" else "OFF"}")
         appendLine("Last car-found alert: ${AutoConnectService.lastAlertAt(getApplication()).let { if (it == 0L) "never" else java.time.Instant.ofEpochMilli(it).toString() }}")
         appendLine("Auto-reconnect: ${if (reconnecting) "attempt $reconnectAttempts of $maxReconnectAttempts after a drop" else "idle"}")
         appendLine("Quick connect: saved keys=${quickStore.peerCount()}")
@@ -802,6 +827,9 @@ class DiagnosticsViewModel(application: Application) : AndroidViewModel(applicat
                 event("Reconnected after the drop")
             }
             projection.onAuthenticated(local, key)
+            // Mirror mode needs a capture grant before the car sends PLAY; ask for it now
+            // instead of waiting for the Prepare button (build 55, semi-auto share).
+            requestCaptureIfNeeded()
         }
         viewModelScope.launch { network.authProbe.collect {
             event("TCP AUTH test: ${it.stage}; ${it.detail}; duration ms=${it.elapsedMs}; no payload or ICCOA session")
@@ -895,6 +923,7 @@ class MainActivity : ComponentActivity() {
     val autoWatch by model.projection.quality.autoWatch.collectAsStateWithLifecycle()
     val keepFullFps by model.projection.quality.keepFullFpsWhenHot.collectAsStateWithLifecycle()
     val reduceClipping by model.projection.quality.reduceClipping.collectAsStateWithLifecycle()
+    val mutePhone by model.projection.quality.mutePhoneWhenConnected.collectAsStateWithLifecycle()
     val updateState by model.update.collectAsStateWithLifecycle()
     val headunitPreview by model.headunitPreview.collectAsStateWithLifecycle()
     val forceLandscape by model.savings.landscape.collectAsStateWithLifecycle()
@@ -921,6 +950,19 @@ class MainActivity : ComponentActivity() {
     val connectionNotice by model.connectionNotice.collectAsStateWithLifecycle()
     val scroll = rememberScrollState()
     LaunchedEffect(connectionNotice) { scroll.animateScrollTo(0) }
+    // Semi-auto screen share (build 55): a mirror-mode session that authenticated without a
+    // capture grant asks for capture itself. The dialog only launches while the activity is
+    // resumed; if it was in the background when the request fired, the ViewModel re-emits
+    // it from resumed() and this runs then.
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+    val captureRequest by model.captureRequest.collectAsStateWithLifecycle()
+    LaunchedEffect(captureRequest) {
+        if (captureRequest != 0L && lifecycleOwner.lifecycle.currentState
+                .isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+            val manager = captureContext.getSystemService(android.media.projection.MediaProjectionManager::class.java)
+            capture.launch(manager.createScreenCaptureIntent())
+        }
+    }
     var pendingRead by remember { mutableStateOf<String?>(null) }
     var pendingAuthProbe by remember { mutableStateOf(false) }
     var pendingAuthExchange by remember { mutableStateOf(false) }
@@ -1204,6 +1246,13 @@ class MainActivity : ComponentActivity() {
             Text("Heavy bass breaks up on the Android Auto path because the captured signal runs hot and the car's CarLink sound clips it. " +
                 "Reducing the volume by 3 dB before encoding gives it headroom; turn the car volume up a notch to compensate. " +
                 "Flip it on during a bass-heavy song and compare — the toggle itself is the test.")
+            OutlinedButton(onClick = { model.projection.quality.setMutePhoneWhenConnected(!mutePhone) },
+                modifier = Modifier.fillMaxWidth()) {
+                Text(if (mutePhone) "Phone sound while connected: muted (the car plays it)" else "Phone sound while connected: plays on the phone too")
+            }
+            Text("Dashboard and mirror sessions play on the car, so the phone speaker is muted while connected and the media volume is restored when the session ends. " +
+                "While muted, phone apps play no sound either. Lite is already silent, so this does not apply to it. " +
+                "Mirror-mode car sound still needs a car test to confirm the capture does not follow the speaker volume.")
             if (Build.VERSION.SDK_INT >= 34) {
                 OutlinedButton(onClick = { showCaptureGuide = true }, enabled = !probeRunning, modifier = Modifier.fillMaxWidth()) { Text("Share an app (experimental)") }
             }

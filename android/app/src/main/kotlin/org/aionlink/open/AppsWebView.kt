@@ -27,8 +27,10 @@ import java.util.WeakHashMap
  *
  * Build 50 fixes, from the first preview test:
  * - YouTube: youtube.com/tv redirects to youtube.com when the client looks like a mobile
- *   browser, so YouTube loads get a desktop (TV) user agent; everything else keeps the
- *   phone's mobile agent, so pages stay phone-sized.
+ *   browser, so YouTube loads got a desktop (TV) user agent; everything else keeps the
+ *   phone's mobile agent, so pages stay phone-sized. (Build 55: the /tv embed path is gone —
+ *   the tile opens the real youtube.com page in the dashboard browser with the mobile agent,
+ *   so no YouTube load uses the TV agent any more; loadYouTube is removed.)
  * - Map links: a maps site can answer with an intent:// link to the Maps app, which a
  *   WebView cannot load (ERR_UNKNOWN_URL_SCHEME). The intent is rewritten to the plain
  *   https address it carries, so the map stays in the WebView — opening the Maps app on
@@ -48,10 +50,9 @@ object AppsWebView {
     /** The dashboard URL: the local server's http origin when it is up, else the file:// fallback. */
     fun dashboardUrl(): String = DashboardHttpServer.baseUrl()?.let { "$it/dashboard.html" } ?: FILE_DASHBOARD_URL
 
-    /** Desktop Chrome: youtube.com/tv serves the TV interface to this instead of redirecting. */
-    private const val TV_USER_AGENT =
-        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
-
+    /** Build 55: YouTube loads with the phone's mobile agent (the TV agent was only for
+     * the /tv embed path, which is gone). The dashboard browser path already does this
+     * via [enterBrowserMode]; this branch keeps the old launcher helper consistent. */
     private var mobileAgent: String? = null
 
     /** Per-WebView dashboard-browser state: true while the main document is a third-party site. */
@@ -78,7 +79,7 @@ object AppsWebView {
                     rewriteIntentUrl(url)?.let { view.loadUrl(it); return true }
                     if (isYouTubeUrl(url)) {
                         if (onYouTubeTap != null) { onYouTubeTap(url); return true }
-                        view.settings.userAgentString = TV_USER_AGENT
+                        useMobileAgent(view)
                         return false
                     }
                     view.settings.userAgentString = mobileAgent
@@ -162,9 +163,6 @@ object AppsWebView {
         view.addJavascriptInterface(bridge, "AndroidBridge")
         loadDashboard(view)
     }
-
-    /** Load a YouTube page with the TV agent, so /tv serves the TV interface. */
-    fun loadYouTube(view: WebView, url: String) { view.settings.userAgentString = TV_USER_AGENT; view.loadUrl(url) }
 
     private fun useMobileAgent(view: WebView) {
         view.settings.userAgentString = mobileAgent ?: WebSettings.getDefaultUserAgent(view.context)

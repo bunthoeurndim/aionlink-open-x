@@ -98,6 +98,22 @@ class VideoQuality(context: Context) {
         mutableReduceClipping.value = value
     }
 
+    /**
+     * Mute the phone while connected (build 55): dashboard and mirror sessions play on the
+     * car, so the phone speaker is silenced for the session and the media volume is restored
+     * when it ends. On by default. Lite is excluded — the phone is already silent there.
+     * While muted, phone apps play no sound either; that is the point, but worth knowing.
+     * Mirror-mode car sound still needs a car test to confirm the audio capture does not
+     * follow the speaker volume.
+     */
+    private val mutableMutePhoneWhenConnected = MutableStateFlow(preferences.getBoolean("mute_phone_when_connected", true))
+    val mutePhoneWhenConnected = mutableMutePhoneWhenConnected.asStateFlow()
+
+    fun setMutePhoneWhenConnected(value: Boolean) {
+        preferences.edit().putBoolean("mute_phone_when_connected", value).apply()
+        mutableMutePhoneWhenConnected.value = value
+    }
+
     /** Re-read the watch flag (the background service can turn it off from a notification action). */
     fun refreshAutoWatch() {
         mutableAutoWatch.value = preferences.getBoolean("auto_watch", false)

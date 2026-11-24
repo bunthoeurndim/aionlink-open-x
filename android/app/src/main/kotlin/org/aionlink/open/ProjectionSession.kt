@@ -77,6 +77,7 @@ class ProjectionSession(private val context: Context, private val savings: Phone
     @Volatile private var localAddress: Inet4Address? = null
     @Volatile private var videoWidth = 0
     @Volatile private var videoHeight = 0
+    @Volatile private var savedMusicVolume: Int? = null
     @Volatile private var uibcKey: ByteArray? = null
     @Volatile private var mediaStage = "IDLE"
     @Volatile private var sensorStage = "IDLE"
@@ -257,6 +258,27 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         else "Select OpenHeadunit Lite before connecting and wait for video to start"
     }
 
+    /** Session-scoped auto-mute (build 55): dashboard and mirror sessions play on the car,
+     * so the phone speaker is muted while the session runs and the media volume is restored
+     * when it ends. Lite is excluded — the phone is already silent there. The saved volume
+     * is only taken once per session, so a second PLAY cannot overwrite it with 0. */
+    private fun mutePhoneForSession() {
+        if (savedMusicVolume != null) return
+        if (!quality.mutePhoneWhenConnected.value) return
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        savedMusicVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+        event("Phone media volume muted for the car session (restored when it ends)")
+    }
+
+    private fun restorePhoneVolume() {
+        val saved = savedMusicVolume ?: return
+        savedMusicVolume = null
+        val audio = context.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        audio.setStreamVolume(AudioManager.STREAM_MUSIC, saved, 0)
+        event("Phone media volume restored to $saved")
+    }
+
     private fun play(play: WfdPlay) {
         val carMode = quality.carMode.value
         val externalHeadunit = carMode && quality.externalHeadunit.value
@@ -269,6 +291,9 @@ class ProjectionSession(private val context: Context, private val savings: Phone
         }
         try {
             val local = localAddress ?: return
+            // Dashboard and mirror sessions play on the car: silence the phone speaker for the
+            // session. Restored in stopStream on every exit path, including errors and drops.
+            if (!externalHeadunit) mutePhoneForSession()
             val audioPermitted = context.checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
             // Open Headunit hands its decoded sound to AionLink through the bridge: no capture or permission needed,
             // and the phone speaker stays silent. Other sources use playback capture when it was prepared.
@@ -390,6 +415,9 @@ class ProjectionSession(private val context: Context, private val savings: Phone
     }
 
     private fun stopStream(reason: String) {
+        // Every exit path runs through here (stop, drop, error, mode switch), so the muted
+        // phone volume always comes back — including when the next PLAY re-mutes it.
+        restorePhoneVolume()
         main.post { TouchInjectionService.instance?.hideCarButtons() }
         savings.onStreamStopped()
         audioCapture?.close(); audioCapture = null
